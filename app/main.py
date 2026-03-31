@@ -6,23 +6,21 @@ MCP-compatible API server for Dify tool integration.
 
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.openapi.utils import get_openapi
+from fastapi.responses import JSONResponse
 import pandas as pd
 from datetime import date
 from typing import Optional
-import os, copy
+import os
 
 # ── App ───────────────────────────────────────────────────────────────────────
 
-SERVER_URL = os.getenv("SERVER_URL", "https://hr-mcp-server.vercel.app")
-
 app = FastAPI(
     title="HR Employee MCP Server",
-    description=(
-        "MCP-compatible FastAPI server for Dify. "
-        "17 tools to answer HR questions about employees in Bahasa Indonesia."
-    ),
-    version="1.0.0",
+    version="2.0.0",
+    # Disable FastAPI's auto /openapi.json — we serve our own below
+    openapi_url=None,
+    docs_url=None,
+    redoc_url=None,
 )
 
 app.add_middleware(
@@ -32,35 +30,182 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ── Hand-crafted OpenAPI 3.0.3 schema (Dify-compatible) ──────────────────────
+# FastAPI defaults to 3.1.0 which Dify cannot parse.
+# We serve a fully static, manually written 3.0.3 schema instead.
 
-def _to_openapi30(obj):
-    """Recursively convert OpenAPI 3.1 constructs → 3.0 so Dify can parse them."""
-    if isinstance(obj, dict):
-        # anyOf: [{type:X},{type:null}]  →  type:X + nullable:true
-        if "anyOf" in obj:
-            non_null = [s for s in obj["anyOf"] if s.get("type") != "null"]
-            has_null  = len(non_null) < len(obj["anyOf"])
-            if non_null:
-                merged = {k: v for k, v in obj.items() if k != "anyOf"}
-                merged.update(non_null[0])
-                if has_null:
-                    merged["nullable"] = True
-                obj = merged
-        return {k: _to_openapi30(v) for k, v in obj.items()}
-    elif isinstance(obj, list):
-        return [_to_openapi30(i) for i in obj]
-    return obj
+OPENAPI_SCHEMA = {
+  "openapi": "3.0.3",
+  "info": {
+    "title": "HR Employee MCP Server",
+    "description": "17 HR tools for Dify: headcount, contracts, turnover, probation, search, and assignment gaps.",
+    "version": "2.0.0"
+  },
+  "servers": [{"url": "https://hr-mcp-server.vercel.app"}],
+  "paths": {
+    "/tools/total_active_employees": {"get": {
+      "operationId": "total_active_employees",
+      "summary": "Total karyawan aktif",
+      "description": "Mengembalikan total, aktif, dan tidak aktif karyawan. Jawab: Berapa total karyawan aktif?",
+      "parameters": [],
+      "responses": {"200": {"description": "OK", "content": {"application/json": {"schema": {"type": "object"}}}}}
+    }},
+    "/tools/employee_summary": {"get": {
+      "operationId": "employee_summary",
+      "summary": "Ringkasan statistik karyawan",
+      "description": "Snapshot lengkap workforce: total, aktif, tipe kontrak, top department. Jawab: Ringkasan data karyawan, Berapa permanent vs kontrak?",
+      "parameters": [],
+      "responses": {"200": {"description": "OK", "content": {"application/json": {"schema": {"type": "object"}}}}}
+    }},
+    "/tools/headcount_per_outlet": {"get": {
+      "operationId": "headcount_per_outlet",
+      "summary": "Jumlah karyawan per outlet",
+      "description": "Jumlah karyawan dikelompokkan per outlet. Jawab: Berapa karyawan per outlet?",
+      "parameters": [
+        {"name": "active_only", "in": "query", "required": False, "schema": {"type": "boolean", "default": True}, "description": "Hanya karyawan aktif"}
+      ],
+      "responses": {"200": {"description": "OK", "content": {"application/json": {"schema": {"type": "object"}}}}}
+    }},
+    "/tools/headcount_per_level": {"get": {
+      "operationId": "headcount_per_level",
+      "summary": "Jumlah karyawan per job level",
+      "description": "Distribusi karyawan per level jabatan. Jawab: Berapa karyawan per level?",
+      "parameters": [
+        {"name": "active_only", "in": "query", "required": False, "schema": {"type": "boolean", "default": True}, "description": "Hanya karyawan aktif"}
+      ],
+      "responses": {"200": {"description": "OK", "content": {"application/json": {"schema": {"type": "object"}}}}}
+    }},
+    "/tools/headcount_per_branch": {"get": {
+      "operationId": "headcount_per_branch",
+      "summary": "Jumlah karyawan per branch/brand",
+      "description": "Jumlah karyawan per perusahaan/brand. Jawab: Brand mana paling banyak karyawan?",
+      "parameters": [
+        {"name": "active_only", "in": "query", "required": False, "schema": {"type": "boolean", "default": True}, "description": "Hanya karyawan aktif"}
+      ],
+      "responses": {"200": {"description": "OK", "content": {"application/json": {"schema": {"type": "object"}}}}}
+    }},
+    "/tools/contracts_expiring": {"get": {
+      "operationId": "contracts_expiring",
+      "summary": "Kontrak habis bulan/tahun tertentu",
+      "description": "Karyawan kontrak yang habis pada bulan/tahun atau dalam N hari. Jawab: Siapa kontrak habis bulan ini?, Kontrak habis dalam 30 hari?",
+      "parameters": [
+        {"name": "month",       "in": "query", "required": False, "schema": {"type": "integer", "nullable": True}, "description": "Bulan 1-12. Kosong = bulan ini."},
+        {"name": "year",        "in": "query", "required": False, "schema": {"type": "integer", "nullable": True}, "description": "Tahun, contoh 2026. Kosong = tahun ini."},
+        {"name": "within_days", "in": "query", "required": False, "schema": {"type": "integer", "nullable": True}, "description": "Habis dalam N hari ke depan. Mengabaikan month/year."}
+      ],
+      "responses": {"200": {"description": "OK", "content": {"application/json": {"schema": {"type": "object"}}}}}
+    }},
+    "/tools/contracts_missing_enddate": {"get": {
+      "operationId": "contracts_missing_enddate",
+      "summary": "Kontrak aktif tanpa tanggal akhir",
+      "description": "Karyawan kontrak aktif tanpa tanggal akhir kontrak (proxy belum tanda tangan). Jawab: Siapa belum tanda tangan kontrak?",
+      "parameters": [],
+      "responses": {"200": {"description": "OK", "content": {"application/json": {"schema": {"type": "object"}}}}}
+    }},
+    "/tools/probation_employees": {"get": {
+      "operationId": "probation_employees",
+      "summary": "Karyawan masih masa probasi",
+      "description": "Karyawan aktif yang bergabung dalam N bulan terakhir. Jawab: Siapa masih probation?",
+      "parameters": [
+        {"name": "probation_months", "in": "query", "required": False, "schema": {"type": "integer", "default": 3}, "description": "Durasi probasi dalam bulan (default 3)"}
+      ],
+      "responses": {"200": {"description": "OK", "content": {"application/json": {"schema": {"type": "object"}}}}}
+    }},
+    "/tools/new_hires": {"get": {
+      "operationId": "new_hires",
+      "summary": "Karyawan baru dalam periode tertentu",
+      "description": "Karyawan yang baru bergabung. Jawab: Siapa karyawan baru bulan ini?",
+      "parameters": [
+        {"name": "month",       "in": "query", "required": False, "schema": {"type": "integer", "nullable": True}, "description": "Bulan bergabung. Kosong = bulan ini."},
+        {"name": "year",        "in": "query", "required": False, "schema": {"type": "integer", "nullable": True}, "description": "Tahun bergabung. Kosong = tahun ini."},
+        {"name": "within_days", "in": "query", "required": False, "schema": {"type": "integer", "nullable": True}, "description": "Bergabung dalam N hari terakhir."}
+      ],
+      "responses": {"200": {"description": "OK", "content": {"application/json": {"schema": {"type": "object"}}}}}
+    }},
+    "/tools/resigned_employees": {"get": {
+      "operationId": "resigned_employees",
+      "summary": "Daftar karyawan yang resign",
+      "description": "Karyawan tidak aktif atau sudah resign. Jawab: Siapa yang sudah resign?, Berapa yang resign bulan ini?",
+      "parameters": [
+        {"name": "month", "in": "query", "required": False, "schema": {"type": "integer", "nullable": True}, "description": "Filter bulan resign (1-12)"},
+        {"name": "year",  "in": "query", "required": False, "schema": {"type": "integer", "nullable": True}, "description": "Filter tahun resign"}
+      ],
+      "responses": {"200": {"description": "OK", "content": {"application/json": {"schema": {"type": "object"}}}}}
+    }},
+    "/tools/resign_by_position": {"get": {
+      "operationId": "resign_by_position",
+      "summary": "Posisi paling banyak resign",
+      "description": "Ranking jabatan berdasarkan jumlah resign. Jawab: Posisi apa paling banyak resign?",
+      "parameters": [
+        {"name": "top_n", "in": "query", "required": False, "schema": {"type": "integer", "default": 10}, "description": "Tampilkan N posisi teratas"},
+        {"name": "year",  "in": "query", "required": False, "schema": {"type": "integer", "nullable": True}, "description": "Filter tahun resign"}
+      ],
+      "responses": {"200": {"description": "OK", "content": {"application/json": {"schema": {"type": "object"}}}}}
+    }},
+    "/tools/turnover_per_outlet": {"get": {
+      "operationId": "turnover_per_outlet",
+      "summary": "Tingkat turnover per outlet",
+      "description": "Jumlah resign dan persentase turnover per outlet. Jawab: Outlet mana turnover tinggi?",
+      "parameters": [
+        {"name": "year", "in": "query", "required": False, "schema": {"type": "integer", "nullable": True}, "description": "Filter tahun resign. Kosong = semua tahun."}
+      ],
+      "responses": {"200": {"description": "OK", "content": {"application/json": {"schema": {"type": "object"}}}}}
+    }},
+    "/tools/search_employee": {"get": {
+      "operationId": "search_employee",
+      "summary": "Cari karyawan berdasarkan nama",
+      "description": "Cari karyawan dengan nama partial match. Jawab: Cari data karyawan Andi",
+      "parameters": [
+        {"name": "name", "in": "query", "required": True, "schema": {"type": "string"}, "description": "Nama karyawan, partial match"}
+      ],
+      "responses": {"200": {"description": "OK", "content": {"application/json": {"schema": {"type": "object"}}}}}
+    }},
+    "/tools/list_by_department": {"get": {
+      "operationId": "list_by_department",
+      "summary": "Daftar karyawan per department",
+      "description": "Daftar karyawan berdasarkan department partial match. Jawab: Siapa karyawan di department Operations?",
+      "parameters": [
+        {"name": "department", "in": "query", "required": True,  "schema": {"type": "string"}, "description": "Nama department, partial match"},
+        {"name": "active_only","in": "query", "required": False, "schema": {"type": "boolean", "default": True}, "description": "Hanya karyawan aktif"}
+      ],
+      "responses": {"200": {"description": "OK", "content": {"application/json": {"schema": {"type": "object"}}}}}
+    }},
+    "/tools/list_by_outlet": {"get": {
+      "operationId": "list_by_outlet",
+      "summary": "Daftar karyawan per outlet",
+      "description": "Daftar karyawan berdasarkan outlet partial match. Jawab: Siapa yang kerja di Gandaria?",
+      "parameters": [
+        {"name": "outlet",     "in": "query", "required": True,  "schema": {"type": "string"}, "description": "Nama outlet, partial match"},
+        {"name": "active_only","in": "query", "required": False, "schema": {"type": "boolean", "default": True}, "description": "Hanya karyawan aktif"}
+      ],
+      "responses": {"200": {"description": "OK", "content": {"application/json": {"schema": {"type": "object"}}}}}
+    }},
+    "/tools/unassigned_employees": {"get": {
+      "operationId": "unassigned_employees",
+      "summary": "Karyawan belum assign outlet/jabatan/SPV",
+      "description": "Karyawan tanpa outlet, tanpa jabatan, atau outlet tanpa SPV. Jawab: Siapa belum assign outlet?, Siapa belum assign jabatan?, Siapa belum assign SPV?",
+      "parameters": [
+        {"name": "check",      "in": "query", "required": False, "schema": {"type": "string",  "default": "outlet"}, "description": "Yang dicek: outlet atau job_position atau supervisor"},
+        {"name": "active_only","in": "query", "required": False, "schema": {"type": "boolean", "default": True}, "description": "Hanya karyawan aktif"}
+      ],
+      "responses": {"200": {"description": "OK", "content": {"application/json": {"schema": {"type": "object"}}}}}
+    }},
+    "/tools/outlets_without_leader": {"get": {
+      "operationId": "outlets_without_leader",
+      "summary": "Outlet belum ada leader/manager",
+      "description": "Outlet tanpa karyawan di posisi leader atau manager. Jawab: Outlet mana belum ada leader?",
+      "parameters": [],
+      "responses": {"200": {"description": "OK", "content": {"application/json": {"schema": {"type": "object"}}}}}
+    }}
+  }
+}
 
 
 @app.get("/openapi.json", include_in_schema=False)
-def custom_openapi_endpoint():
-    """OpenAPI 3.0.3 schema — compatible with Dify's Custom Tool importer."""
-    raw    = get_openapi(title=app.title, version=app.version,
-                         description=app.description, routes=app.routes)
-    schema = _to_openapi30(copy.deepcopy(raw))
-    schema["openapi"] = "3.0.3"
-    schema["servers"] = [{"url": SERVER_URL}]
-    return schema
+def openapi_schema():
+    """Serve hand-crafted OpenAPI 3.0.3 schema — always Dify-compatible."""
+    return JSONResponse(content=OPENAPI_SCHEMA)
+
 
 # ── Data loader ───────────────────────────────────────────────────────────────
 
