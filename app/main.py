@@ -6,12 +6,15 @@ MCP-compatible API server for Dify tool integration.
 
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.openapi.utils import get_openapi
 import pandas as pd
 from datetime import date
 from typing import Optional
-import os
+import os, copy
 
 # ── App ───────────────────────────────────────────────────────────────────────
+
+SERVER_URL = os.getenv("SERVER_URL", "https://hr-mcp-server.vercel.app")
 
 app = FastAPI(
     title="HR Employee MCP Server",
@@ -19,7 +22,7 @@ app = FastAPI(
         "MCP-compatible FastAPI server for Dify. "
         "17 tools to answer HR questions about employees in Bahasa Indonesia."
     ),
-    version="2.0.0",
+    version="1.0.0",
 )
 
 app.add_middleware(
@@ -28,6 +31,36 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+def _to_openapi30(obj):
+    """Recursively convert OpenAPI 3.1 constructs → 3.0 so Dify can parse them."""
+    if isinstance(obj, dict):
+        # anyOf: [{type:X},{type:null}]  →  type:X + nullable:true
+        if "anyOf" in obj:
+            non_null = [s for s in obj["anyOf"] if s.get("type") != "null"]
+            has_null  = len(non_null) < len(obj["anyOf"])
+            if non_null:
+                merged = {k: v for k, v in obj.items() if k != "anyOf"}
+                merged.update(non_null[0])
+                if has_null:
+                    merged["nullable"] = True
+                obj = merged
+        return {k: _to_openapi30(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [_to_openapi30(i) for i in obj]
+    return obj
+
+
+@app.get("/openapi.json", include_in_schema=False)
+def custom_openapi_endpoint():
+    """OpenAPI 3.0.3 schema — compatible with Dify's Custom Tool importer."""
+    raw    = get_openapi(title=app.title, version=app.version,
+                         description=app.description, routes=app.routes)
+    schema = _to_openapi30(copy.deepcopy(raw))
+    schema["openapi"] = "3.0.3"
+    schema["servers"] = [{"url": SERVER_URL}]
+    return schema
 
 # ── Data loader ───────────────────────────────────────────────────────────────
 
