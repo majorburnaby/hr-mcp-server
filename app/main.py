@@ -196,6 +196,23 @@ OPENAPI_SCHEMA = {
       "description": "Outlet tanpa karyawan di posisi leader atau manager. Jawab: Outlet mana belum ada leader?",
       "parameters": [],
       "responses": {"200": {"description": "OK", "content": {"application/json": {"schema": {"type": "object"}}}}}
+    }},
+    "/tools/list_all_employees": {"get": {
+      "operationId": "list_all_employees",
+      "summary": "Daftar semua karyawan beserta detail lengkap",
+      "description": "Return semua karyawan aktif dengan detail lengkap tanpa filter wajib. Jawab: Siapa saja karyawan aktif? Tampilkan semua karyawan. Detailkan karyawan aktif. List semua karyawan permanent.",
+      "parameters": [
+        {"name": "active_only",        "in": "query", "required": False, "schema": {"type": "boolean", "default": True},  "description": "True = hanya aktif, False = semua termasuk resign"},
+        {"name": "employment_status",  "in": "query", "required": False, "schema": {"type": "string",  "nullable": True}, "description": "Filter: Permanent atau Contract"}
+      ],
+      "responses": {"200": {"description": "OK", "content": {"application/json": {"schema": {"type": "object"}}}}}
+    }},
+    "/tools/list_active_by_status": {"get": {
+      "operationId": "list_active_by_status",
+      "summary": "Karyawan aktif dikelompokkan per status kepegawaian",
+      "description": "Karyawan aktif dikelompokkan Permanent vs Contract beserta nama lengkap. Jawab: Berapa permanent vs kontrak dan siapa saja? Detail karyawan permanent. Detail karyawan kontrak aktif.",
+      "parameters": [],
+      "responses": {"200": {"description": "OK", "content": {"application/json": {"schema": {"type": "object"}}}}}
     }}
   }
 }
