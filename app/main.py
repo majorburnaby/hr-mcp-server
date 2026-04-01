@@ -899,44 +899,56 @@ def outlets_without_leader():
 @app.get("/tools/list_all_employees", summary="Daftar semua karyawan aktif beserta detail")
 def list_all_employees(
     active_only: bool = Query(True, description="True = hanya aktif, False = semua termasuk resign"),
-    employment_status: Optional[str] = Query(None, description="Filter: 'Permanent' atau 'Contract'"),
+    employment_status: Optional[str] = Query(None, description="Filter: Permanent atau Contract"),
 ):
     """
     Return full employee roster with key details. No required parameters.
     Answers: "Siapa saja karyawan aktif?", "Tampilkan semua karyawan",
              "Detailkan karyawan aktif", "List semua karyawan permanent"
     """
-    df = load_df()
+    import traceback
+    try:
+        df = load_df()
 
-    if active_only:
-        df = df[df["employee_data_status"].str.lower() == "active"]
+        if active_only:
+            df = df[df["employee_data_status"].str.lower() == "active"]
 
-    if employment_status:
-        df = df[df["employment_status"].str.lower() == employment_status.lower()]
+        if employment_status:
+            df = df[df["employment_status"].str.lower() == employment_status.lower()]
 
-    result = []
-    for _, r in df.iterrows():
-        result.append({
-            "employee_id":         r.get("employee_id"),
-            "full_name":           r.get("full_name"),
-            "department":          r.get("department"),
-            "outlet":              r.get("outlet"),
-            "job_position":        r.get("job_position"),
-            "job_level":           int(r["job_level"]) if pd.notna(r.get("job_level")) else None,
-            "employment_status":   r.get("employment_status"),
-            "employee_data_status": r.get("employee_data_status"),
-            "join_date":           r["join_date"].strftime("%Y-%m-%d") if pd.notna(r["join_date"]) else None,
-            "end_employment_date": r["end_employment_date"].strftime("%Y-%m-%d") if pd.notna(r["end_employment_date"]) else None,
-        })
+        def safe(v):
+            """Convert pandas value to JSON-safe Python type."""
+            if v is None: return None
+            try:
+                if pd.isna(v): return None
+            except: pass
+            return v
 
-    scope = "aktif" if active_only else "semua"
-    filter_note = f" ({employment_status})" if employment_status else ""
-    return {
-        "total":     len(result),
-        "scope":     scope + filter_note,
-        "employees": result,
-        "summary":   f"Total {len(result)} karyawan {scope}{filter_note}.",
-    }
+        result = []
+        for _, r in df.iterrows():
+            result.append({
+                "employee_id":          safe(r["employee_id"]),
+                "full_name":            safe(r["full_name"]),
+                "department":           safe(r["department"]),
+                "outlet":               safe(r["outlet"]),
+                "job_position":         safe(r["job_position"]),
+                "job_level":            int(r["job_level"]) if pd.notna(r["job_level"]) else None,
+                "employment_status":    safe(r["employment_status"]),
+                "employee_data_status": safe(r["employee_data_status"]),
+                "join_date":            r["join_date"].strftime("%Y-%m-%d") if pd.notna(r["join_date"]) else None,
+                "end_employment_date":  r["end_employment_date"].strftime("%Y-%m-%d") if pd.notna(r["end_employment_date"]) else None,
+            })
+
+        scope = "aktif" if active_only else "semua"
+        filter_note = f" ({employment_status})" if employment_status else ""
+        return {
+            "total":     len(result),
+            "scope":     scope + filter_note,
+            "employees": result,
+            "summary":   f"Total {len(result)} karyawan {scope}{filter_note}.",
+        }
+    except Exception as e:
+        return {"error": str(e), "trace": traceback.format_exc()}
 
 
 @app.get("/tools/list_active_by_status", summary="Daftar karyawan aktif dikelompokkan per status kepegawaian")
@@ -951,15 +963,22 @@ def list_active_by_status():
 
     groups = {}
     for status, grp in active.groupby("employment_status", dropna=False):
+        def safe(v):
+            if v is None: return None
+            try:
+                if pd.isna(v): return None
+            except: pass
+            return v
+
         label = str(status) if pd.notna(status) else "Tidak diketahui"
         groups[label] = [
             {
-                "employee_id":   r.get("employee_id"),
-                "full_name":     r.get("full_name"),
-                "department":    r.get("department"),
-                "outlet":        r.get("outlet"),
-                "job_position":  r.get("job_position"),
-                "join_date":     r["join_date"].strftime("%Y-%m-%d") if pd.notna(r["join_date"]) else None,
+                "employee_id":         safe(r["employee_id"]),
+                "full_name":           safe(r["full_name"]),
+                "department":          safe(r["department"]),
+                "outlet":              safe(r["outlet"]),
+                "job_position":        safe(r["job_position"]),
+                "join_date":           r["join_date"].strftime("%Y-%m-%d") if pd.notna(r["join_date"]) else None,
                 "end_employment_date": r["end_employment_date"].strftime("%Y-%m-%d") if pd.notna(r["end_employment_date"]) else None,
             }
             for _, r in grp.iterrows()
