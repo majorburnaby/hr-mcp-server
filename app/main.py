@@ -213,6 +213,16 @@ OPENAPI_SCHEMA = {
       "description": "Karyawan aktif dikelompokkan Permanent vs Contract beserta nama lengkap. Jawab: Berapa permanent vs kontrak dan siapa saja? Detail karyawan permanent. Detail karyawan kontrak aktif.",
       "parameters": [],
       "responses": {"200": {"description": "OK", "content": {"application/json": {"schema": {"type": "object"}}}}}
+    }},
+    "/tools/list_employees_by_join_year": {"get": {
+      "operationId": "list_employees_by_join_year",
+      "summary": "Karyawan berdasarkan tahun bergabung",
+      "description": "Daftar karyawan yang bergabung pada tahun tertentu. Jawab: Berapa karyawan join tahun 2003? Siapa yang masuk tahun X? Karyawan yang bergabung tahun X.",
+      "parameters": [
+        {"name": "year",        "in": "query", "required": True,  "schema": {"type": "integer"}, "description": "Tahun bergabung, contoh: 2003"},
+        {"name": "active_only", "in": "query", "required": False, "schema": {"type": "boolean", "default": False}, "description": "True = hanya aktif, False = semua termasuk resign"}
+      ],
+      "responses": {"200": {"description": "OK", "content": {"application/json": {"schema": {"type": "object"}}}}}
     }}
   }
 }
@@ -285,7 +295,8 @@ def manifest():
             {"name": "unassigned_employees",      "endpoint": "/tools/unassigned_employees",      "method": "GET", "description": "Karyawan belum assign outlet, jabatan, atau outlet tanpa SPV"},
             {"name": "outlets_without_leader",    "endpoint": "/tools/outlets_without_leader",    "method": "GET", "description": "Outlet yang belum memiliki leader atau manager"},
             {"name": "list_all_employees",        "endpoint": "/tools/list_all_employees",        "method": "GET", "description": "Daftar semua karyawan aktif beserta detail lengkap — untuk pertanyaan 'siapa saja karyawan aktif?' tanpa filter spesifik"},
-            {"name": "list_active_by_status",     "endpoint": "/tools/list_active_by_status",     "method": "GET", "description": "Karyawan aktif dikelompokkan per status kepegawaian (Permanent vs Contract) beserta nama lengkap"},
+            {"name": "list_active_by_status",        "endpoint": "/tools/list_active_by_status",        "method": "GET", "description": "Karyawan aktif dikelompokkan per status kepegawaian (Permanent vs Contract) beserta nama lengkap"},
+            {"name": "list_employees_by_join_year", "endpoint": "/tools/list_employees_by_join_year", "method": "GET", "description": "Daftar karyawan yang bergabung pada tahun tertentu. Jawab: Berapa karyawan join tahun X? Siapa yang masuk tahun X?"},
         ],
     }
 
@@ -989,4 +1000,55 @@ def list_active_by_status():
         "total_active": len(active),
         "by_status":    groups,
         "summary":      f"Karyawan aktif: {', '.join(summary_parts)}.",
+    }
+
+
+# ══════════════════════════════════════════════════════════════════
+# GROUP 7 — Historical / date-based filters
+# ══════════════════════════════════════════════════════════════════
+
+@app.get("/tools/list_employees_by_join_year", summary="Karyawan berdasarkan tahun bergabung")
+def list_employees_by_join_year(
+    year:        int           = Query(...,  description="Tahun bergabung, contoh: 2003"),
+    active_only: bool          = Query(False, description="True = hanya yang masih aktif, False = semua termasuk resign"),
+):
+    """
+    List employees who joined in a specific year.
+    Answers: "Berapa karyawan yang join tahun 2003?", "Siapa yang bergabung tahun 2020?",
+             "Karyawan yang masuk tahun X"
+    """
+    def safe(v):
+        if v is None: return None
+        try:
+            if pd.isna(v): return None
+        except: pass
+        return v
+
+    df = load_df()
+
+    if active_only:
+        df = df[df["employee_data_status"].str.lower() == "active"]
+
+    filtered = df[df["join_date"].dt.year == year]
+
+    result = []
+    for _, r in filtered.iterrows():
+        result.append({
+            "employee_id":          safe(r["employee_id"]),
+            "full_name":            safe(r["full_name"]),
+            "department":           safe(r["department"]),
+            "outlet":               safe(r["outlet"]),
+            "job_position":         safe(r["job_position"]),
+            "employment_status":    safe(r["employment_status"]),
+            "employee_data_status": safe(r["employee_data_status"]),
+            "join_date":            r["join_date"].strftime("%Y-%m-%d") if pd.notna(r["join_date"]) else None,
+        })
+
+    scope = "masih aktif" if active_only else "aktif maupun resign"
+    return {
+        "year":      year,
+        "total":     len(result),
+        "scope":     scope,
+        "employees": result,
+        "summary":   f"Ada {len(result)} karyawan yang bergabung pada tahun {year} ({scope}).",
     }
