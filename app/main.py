@@ -267,6 +267,8 @@ def manifest():
             # Group 5 — Assignment gaps
             {"name": "unassigned_employees",      "endpoint": "/tools/unassigned_employees",      "method": "GET", "description": "Karyawan belum assign outlet, jabatan, atau outlet tanpa SPV"},
             {"name": "outlets_without_leader",    "endpoint": "/tools/outlets_without_leader",    "method": "GET", "description": "Outlet yang belum memiliki leader atau manager"},
+            {"name": "list_all_employees",        "endpoint": "/tools/list_all_employees",        "method": "GET", "description": "Daftar semua karyawan aktif beserta detail lengkap — untuk pertanyaan 'siapa saja karyawan aktif?' tanpa filter spesifik"},
+            {"name": "list_active_by_status",     "endpoint": "/tools/list_active_by_status",     "method": "GET", "description": "Karyawan aktif dikelompokkan per status kepegawaian (Permanent vs Contract) beserta nama lengkap"},
         ],
     }
 
@@ -870,4 +872,85 @@ def outlets_without_leader():
             f"Ada {len(result)} outlet yang belum memiliki posisi leader/manager."
             if result else "Semua outlet sudah memiliki leader."
         ),
+    }
+
+
+# ══════════════════════════════════════════════════════════════════
+# GROUP 6 — Full roster (no required params)
+# ══════════════════════════════════════════════════════════════════
+
+@app.get("/tools/list_all_employees", summary="Daftar semua karyawan aktif beserta detail")
+def list_all_employees(
+    active_only: bool = Query(True, description="True = hanya aktif, False = semua termasuk resign"),
+    employment_status: Optional[str] = Query(None, description="Filter: 'Permanent' atau 'Contract'"),
+):
+    """
+    Return full employee roster with key details. No required parameters.
+    Answers: "Siapa saja karyawan aktif?", "Tampilkan semua karyawan",
+             "Detailkan karyawan aktif", "List semua karyawan permanent"
+    """
+    df = load_df()
+
+    if active_only:
+        df = df[df["employee_data_status"].str.lower() == "active"]
+
+    if employment_status:
+        df = df[df["employment_status"].str.lower() == employment_status.lower()]
+
+    result = []
+    for _, r in df.iterrows():
+        result.append({
+            "employee_id":         r.get("employee_id"),
+            "full_name":           r.get("full_name"),
+            "department":          r.get("department"),
+            "outlet":              r.get("outlet"),
+            "job_position":        r.get("job_position"),
+            "job_level":           int(r["job_level"]) if pd.notna(r.get("job_level")) else None,
+            "employment_status":   r.get("employment_status"),
+            "employee_data_status": r.get("employee_data_status"),
+            "join_date":           r["join_date"].strftime("%Y-%m-%d") if pd.notna(r["join_date"]) else None,
+            "end_employment_date": r["end_employment_date"].strftime("%Y-%m-%d") if pd.notna(r["end_employment_date"]) else None,
+        })
+
+    scope = "aktif" if active_only else "semua"
+    filter_note = f" ({employment_status})" if employment_status else ""
+    return {
+        "total":     len(result),
+        "scope":     scope + filter_note,
+        "employees": result,
+        "summary":   f"Total {len(result)} karyawan {scope}{filter_note}.",
+    }
+
+
+@app.get("/tools/list_active_by_status", summary="Daftar karyawan aktif dikelompokkan per status kepegawaian")
+def list_active_by_status():
+    """
+    Return active employees grouped by employment_status (Permanent / Contract).
+    Answers: "Berapa karyawan permanent vs kontrak dan siapa saja?",
+             "Detail karyawan permanent", "Detail karyawan kontrak aktif"
+    """
+    df     = load_df()
+    active = df[df["employee_data_status"].str.lower() == "active"]
+
+    groups = {}
+    for status, grp in active.groupby("employment_status", dropna=False):
+        label = str(status) if pd.notna(status) else "Tidak diketahui"
+        groups[label] = [
+            {
+                "employee_id":   r.get("employee_id"),
+                "full_name":     r.get("full_name"),
+                "department":    r.get("department"),
+                "outlet":        r.get("outlet"),
+                "job_position":  r.get("job_position"),
+                "join_date":     r["join_date"].strftime("%Y-%m-%d") if pd.notna(r["join_date"]) else None,
+                "end_employment_date": r["end_employment_date"].strftime("%Y-%m-%d") if pd.notna(r["end_employment_date"]) else None,
+            }
+            for _, r in grp.iterrows()
+        ]
+
+    summary_parts = [f"{k}: {len(v)} orang" for k, v in groups.items()]
+    return {
+        "total_active": len(active),
+        "by_status":    groups,
+        "summary":      f"Karyawan aktif: {', '.join(summary_parts)}.",
     }
