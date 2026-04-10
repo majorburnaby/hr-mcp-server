@@ -1,6 +1,6 @@
 # HR Employee MCP Server v2.0.0
 
-FastAPI server yang meng-expose data karyawan sebagai **17 MCP tools** untuk integrasi dengan Dify.  
+FastAPI server yang meng-expose data karyawan sebagai **31 MCP tools** untuk integrasi dengan Dify.  
 Di-deploy di Vercel, terhubung ke Dify sebagai Custom Tool via OpenAPI schema.
 
 ---
@@ -10,7 +10,7 @@ Di-deploy di Vercel, terhubung ke Dify sebagai Custom Tool via OpenAPI schema.
 ```
 hr-mcp-server/
 ├── app/
-│   └── main.py              # FastAPI app — semua 17 tools
+│   └── main.py              # FastAPI app — semua 31 tools
 ├── data/
 │   └── employee_data.csv    # Dataset karyawan (wajib di-commit!)
 ├── requirements.txt
@@ -67,7 +67,7 @@ Server akan live di: `https://hr-mcp-server.vercel.app`
    ```
    https://hr-mcp-server.vercel.app/openapi.json
    ```
-4. Klik **Import** — semua 17 tools akan muncul otomatis.
+4. Klik **Import** — semua 31 tools akan muncul otomatis.
 
 ### Step 2 — Tambahkan ke Agent/Chatflow
 
@@ -85,7 +85,7 @@ Jika pertanyaan tidak bisa dijawab dari data yang ada, jelaskan datanya tidak te
 
 ---
 
-## 17 Tools — Referensi Lengkap
+## 31 Tools — Referensi Lengkap
 
 ### Group 1 — Headcount & Summary
 
@@ -121,6 +121,9 @@ Jika pertanyaan tidak bisa dijawab dari data yang ada, jelaskan datanya tidak te
 | `search_employee` | `GET /tools/search_employee?name=Andi` | "Cari data karyawan Andi" |
 | `list_by_department` | `GET /tools/list_by_department?department=Operations` | "Karyawan di department Operations?" |
 | `list_by_outlet` | `GET /tools/list_by_outlet?outlet=Gandaria` | "Karyawan yang ada di Gandaria?" |
+| `list_all_employees` | `GET /tools/list_all_employees` | "Siapa saja karyawan aktif?" |
+| `list_active_by_status` | `GET /tools/list_active_by_status` | "Berapa permanent vs kontrak dan siapa saja?" |
+| `list_employees_by_join_year` | `GET /tools/list_employees_by_join_year?year=2024` | "Siapa yang masuk tahun 2024?" |
 
 ### Group 5 — Assignment Gaps
 
@@ -128,6 +131,24 @@ Jika pertanyaan tidak bisa dijawab dari data yang ada, jelaskan datanya tidak te
 |---|---|---|
 | `unassigned_employees` | `GET /tools/unassigned_employees?check=outlet` | "Siapa belum assign outlet/jabatan/SPV?" |
 | `outlets_without_leader` | `GET /tools/outlets_without_leader` | "Outlet mana belum ada leader?" |
+
+### Group 6 — Training
+
+> Data dari `data/all_employee_training_data.csv`
+
+| Tool | Endpoint | Contoh Pertanyaan |
+|---|---|---|
+| `training_wajib_not_completed` | `GET /tools/training_wajib_not_completed` | "Siapa belum training wajib?" |
+| `training_completion_by_outlet` | `GET /tools/training_completion_by_outlet` | "Outlet mana training rendah?" |
+| `certification_not_completed` | `GET /tools/certification_not_completed` | "Siapa belum sertifikasi?" |
+| `training_not_started` | `GET /tools/training_not_started` | "Siapa belum training tapi sudah kerja?" |
+| `training_low_score` | `GET /tools/training_low_score` | "Siapa training score rendah?" |
+| `training_most_failed` | `GET /tools/training_most_failed` | "Training apa paling sering gagal?" |
+| `role_certification_not_completed` | `GET /tools/role_certification_not_completed` | "Siapa belum sertifikasi role?" |
+| `training_not_started_3months` | `GET /tools/training_not_started_3months` | "Siapa belum training tapi sudah 3 bulan kerja?" |
+| `leader_training_not_completed` | `GET /tools/leader_training_not_completed` | "Siapa leader belum training leader?" |
+| `safety_training_not_completed` | `GET /tools/safety_training_not_completed` | "Siapa belum training safety?" |
+| `sop_training_not_completed` | `GET /tools/sop_training_not_completed` | "Siapa belum training SOP?" |
 
 ---
 

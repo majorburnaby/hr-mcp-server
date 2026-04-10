@@ -223,6 +223,118 @@ OPENAPI_SCHEMA = {
         {"name": "active_only", "in": "query", "required": False, "schema": {"type": "boolean", "default": False}, "description": "True = hanya aktif, False = semua termasuk resign"}
       ],
       "responses": {"200": {"description": "OK", "content": {"application/json": {"schema": {"type": "object"}}}}}
+    }},
+    "/tools/training_wajib_not_completed": {"get": {
+      "operationId": "training_wajib_not_completed",
+      "summary": "Karyawan belum selesai training wajib",
+      "description": "Daftar karyawan yang status_training_wajib masih 'not yet'. Jawab: Siapa belum training wajib? Siapa yang belum menyelesaikan training mandatory?",
+      "parameters": [
+        {"name": "outlet_name", "in": "query", "required": False, "schema": {"type": "string",  "nullable": True}, "description": "Filter nama outlet (partial match)"},
+        {"name": "brand_name",  "in": "query", "required": False, "schema": {"type": "string",  "nullable": True}, "description": "Filter nama brand (partial match)"},
+        {"name": "limit",       "in": "query", "required": False, "schema": {"type": "integer", "default": 100},   "description": "Maks jumlah baris dikembalikan"}
+      ],
+      "responses": {"200": {"description": "OK", "content": {"application/json": {"schema": {"type": "object"}}}}}
+    }},
+    "/tools/training_completion_by_outlet": {"get": {
+      "operationId": "training_completion_by_outlet",
+      "summary": "Tingkat penyelesaian training wajib per outlet",
+      "description": "Outlet diurutkan dari tingkat penyelesaian training wajib terendah. Jawab: Outlet mana training rendah? Outlet mana yang paling sedikit menyelesaikan training?",
+      "parameters": [
+        {"name": "top_n",      "in": "query", "required": False, "schema": {"type": "integer", "default": 10},   "description": "Tampilkan N outlet terendah"},
+        {"name": "brand_name", "in": "query", "required": False, "schema": {"type": "string",  "nullable": True}, "description": "Filter nama brand (partial match)"}
+      ],
+      "responses": {"200": {"description": "OK", "content": {"application/json": {"schema": {"type": "object"}}}}}
+    }},
+    "/tools/certification_not_completed": {"get": {
+      "operationId": "certification_not_completed",
+      "summary": "Karyawan belum selesai sertifikasi",
+      "description": "Karyawan yang modul-nya adalah sertifikasi/assessment tapi belum selesai training wajib. Jawab: Siapa belum sertifikasi? Siapa yang belum lulus assessment?",
+      "parameters": [
+        {"name": "outlet_name", "in": "query", "required": False, "schema": {"type": "string", "nullable": True}, "description": "Filter nama outlet (partial match)"},
+        {"name": "limit",       "in": "query", "required": False, "schema": {"type": "integer", "default": 100},  "description": "Maks jumlah baris dikembalikan"}
+      ],
+      "responses": {"200": {"description": "OK", "content": {"application/json": {"schema": {"type": "object"}}}}}
+    }},
+    "/tools/training_not_started": {"get": {
+      "operationId": "training_not_started",
+      "summary": "Karyawan belum mulai training sama sekali",
+      "description": "Karyawan yang sudah bekerja tapi status training wajib masih 'not yet'. Jawab: Siapa belum training tapi sudah kerja? Siapa yang belum pernah training?",
+      "parameters": [
+        {"name": "outlet_name", "in": "query", "required": False, "schema": {"type": "string",  "nullable": True}, "description": "Filter nama outlet (partial match)"},
+        {"name": "limit",       "in": "query", "required": False, "schema": {"type": "integer", "default": 100},   "description": "Maks jumlah baris dikembalikan"}
+      ],
+      "responses": {"200": {"description": "OK", "content": {"application/json": {"schema": {"type": "object"}}}}}
+    }},
+    "/tools/training_low_score": {"get": {
+      "operationId": "training_low_score",
+      "summary": "Karyawan dengan nilai post-test rendah",
+      "description": "Karyawan yang sudah selesai training tapi post_test_grade di bawah ambang batas. Jawab: Siapa training score rendah? Siapa yang nilai ujian training-nya rendah?",
+      "parameters": [
+        {"name": "threshold",   "in": "query", "required": False, "schema": {"type": "integer", "default": 70},   "description": "Batas nilai rendah (default 70)"},
+        {"name": "outlet_name", "in": "query", "required": False, "schema": {"type": "string",  "nullable": True}, "description": "Filter nama outlet (partial match)"},
+        {"name": "limit",       "in": "query", "required": False, "schema": {"type": "integer", "default": 100},   "description": "Maks jumlah baris dikembalikan"}
+      ],
+      "responses": {"200": {"description": "OK", "content": {"application/json": {"schema": {"type": "object"}}}}}
+    }},
+    "/tools/training_most_failed": {"get": {
+      "operationId": "training_most_failed",
+      "summary": "Modul training paling sering tidak diselesaikan",
+      "description": "Ranking modul training berdasarkan jumlah karyawan yang belum menyelesaikannya. Jawab: Training apa paling sering gagal? Modul mana yang paling banyak tidak selesai?",
+      "parameters": [
+        {"name": "top_n", "in": "query", "required": False, "schema": {"type": "integer", "default": 10}, "description": "Tampilkan N modul teratas"}
+      ],
+      "responses": {"200": {"description": "OK", "content": {"application/json": {"schema": {"type": "object"}}}}}
+    }},
+    "/tools/role_certification_not_completed": {"get": {
+      "operationId": "role_certification_not_completed",
+      "summary": "Karyawan belum sertifikasi sesuai role",
+      "description": "Karyawan yang modul-nya adalah sertifikasi role/jabatan spesifik (leadership, wine assessment) tapi belum selesai. Jawab: Siapa belum sertifikasi role? Siapa yang belum dapat sertifikasi jabatan?",
+      "parameters": [
+        {"name": "outlet_name", "in": "query", "required": False, "schema": {"type": "string", "nullable": True}, "description": "Filter nama outlet (partial match)"},
+        {"name": "limit",       "in": "query", "required": False, "schema": {"type": "integer", "default": 100},  "description": "Maks jumlah baris dikembalikan"}
+      ],
+      "responses": {"200": {"description": "OK", "content": {"application/json": {"schema": {"type": "object"}}}}}
+    }},
+    "/tools/training_not_started_3months": {"get": {
+      "operationId": "training_not_started_3months",
+      "summary": "Karyawan belum training padahal sudah N bulan kerja",
+      "description": "Karyawan yang bergabung lebih dari N bulan lalu tapi belum menyelesaikan training wajib. Jawab: Siapa belum training tapi sudah 3 bulan kerja? Karyawan lama yang belum training?",
+      "parameters": [
+        {"name": "months",      "in": "query", "required": False, "schema": {"type": "integer", "default": 3},    "description": "Minimal masa kerja dalam bulan (default 3)"},
+        {"name": "outlet_name", "in": "query", "required": False, "schema": {"type": "string",  "nullable": True}, "description": "Filter nama outlet (partial match)"},
+        {"name": "limit",       "in": "query", "required": False, "schema": {"type": "integer", "default": 100},   "description": "Maks jumlah baris dikembalikan"}
+      ],
+      "responses": {"200": {"description": "OK", "content": {"application/json": {"schema": {"type": "object"}}}}}
+    }},
+    "/tools/leader_training_not_completed": {"get": {
+      "operationId": "leader_training_not_completed",
+      "summary": "Leader/manager yang belum selesai training kepemimpinan",
+      "description": "Karyawan yang ditugaskan modul kepemimpinan (leadership) tapi belum menyelesaikannya. Jawab: Siapa leader belum training leader? Siapa manajer yang belum training kepemimpinan?",
+      "parameters": [
+        {"name": "outlet_name", "in": "query", "required": False, "schema": {"type": "string", "nullable": True}, "description": "Filter nama outlet (partial match)"},
+        {"name": "limit",       "in": "query", "required": False, "schema": {"type": "integer", "default": 100},  "description": "Maks jumlah baris dikembalikan"}
+      ],
+      "responses": {"200": {"description": "OK", "content": {"application/json": {"schema": {"type": "object"}}}}}
+    }},
+    "/tools/safety_training_not_completed": {"get": {
+      "operationId": "safety_training_not_completed",
+      "summary": "Karyawan belum selesai training safety",
+      "description": "Karyawan yang ditugaskan modul keselamatan kerja (WSE, Food Safety) tapi belum menyelesaikannya. Jawab: Siapa belum training safety? Siapa belum training K3?",
+      "parameters": [
+        {"name": "outlet_name", "in": "query", "required": False, "schema": {"type": "string", "nullable": True}, "description": "Filter nama outlet (partial match)"},
+        {"name": "limit",       "in": "query", "required": False, "schema": {"type": "integer", "default": 100},  "description": "Maks jumlah baris dikembalikan"}
+      ],
+      "responses": {"200": {"description": "OK", "content": {"application/json": {"schema": {"type": "object"}}}}}
+    }},
+    "/tools/sop_training_not_completed": {"get": {
+      "operationId": "sop_training_not_completed",
+      "summary": "Karyawan belum selesai training SOP",
+      "description": "Karyawan yang ditugaskan modul SOP/prosedur operasional tapi belum menyelesaikannya. Jawab: Siapa belum training SOP? Siapa belum training prosedur outlet?",
+      "parameters": [
+        {"name": "outlet_name", "in": "query", "required": False, "schema": {"type": "string", "nullable": True}, "description": "Filter nama outlet (partial match)"},
+        {"name": "limit",       "in": "query", "required": False, "schema": {"type": "integer", "default": 100},  "description": "Maks jumlah baris dikembalikan"}
+      ],
+      "responses": {"200": {"description": "OK", "content": {"application/json": {"schema": {"type": "object"}}}}}
     }}
   }
 }
@@ -251,6 +363,26 @@ def load_df() -> pd.DataFrame:
     return df
 
 SPV_PATTERN = "manager|supervisor|spv|head|lead|chief|director|koordinator|captain"
+
+TRAINING_DATA_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "all_employee_training_data.csv")
+
+def load_training_df() -> pd.DataFrame:
+    """Load and normalise training CSV on every request."""
+    df = pd.read_csv(TRAINING_DATA_PATH, dtype=str)
+    df.columns = [c.strip().lower() for c in df.columns]
+    df["join_date"] = pd.to_datetime(df["join_date"], errors="coerce")
+    df["pre_test_grade"]  = pd.to_numeric(df["pre_test_grade"],  errors="coerce")
+    df["post_test_grade"] = pd.to_numeric(df["post_test_grade"], errors="coerce")
+    df["status_training_wajib"]    = df["status_training_wajib"].str.strip().str.lower()
+    df["status_training_optional"] = df["status_training_optional"].str.strip().str.lower()
+    return df
+
+# Keyword patterns for training module categorisation
+SAFETY_MODULE_PATTERN   = r"safety|Safety|WSE|wse|Work-Safe|K3|HACCP|FSH|Food.Safety"
+SOP_MODULE_PATTERN      = r"SOP|sop|Procedure|procedure|Sequence-of-Service|Closing-Outlet|Opening-Outlet"
+LEADER_MODULE_PATTERN   = r"Leadership|leadership|Conscious-Leadership|MMDP|Way-of-Semaja-Leadership"
+CERT_MODULE_PATTERN     = r"Assesment|Assessment|assesment|assessment|Sertif|sertif|Certif|certif"
+ROLE_CERT_MODULE_PATTERN = r"Assesment|Assessment|assesment|assessment|Wine|SJPH|Halal|GMP|Good-Manufacturing"
 
 # ── MCP manifest ──────────────────────────────────────────────────────────────
 
@@ -297,6 +429,18 @@ def manifest():
             {"name": "list_all_employees",        "endpoint": "/tools/list_all_employees",        "method": "GET", "description": "Daftar semua karyawan aktif beserta detail lengkap — untuk pertanyaan 'siapa saja karyawan aktif?' tanpa filter spesifik"},
             {"name": "list_active_by_status",        "endpoint": "/tools/list_active_by_status",        "method": "GET", "description": "Karyawan aktif dikelompokkan per status kepegawaian (Permanent vs Contract) beserta nama lengkap"},
             {"name": "list_employees_by_join_year", "endpoint": "/tools/list_employees_by_join_year", "method": "GET", "description": "Daftar karyawan yang bergabung pada tahun tertentu. Jawab: Berapa karyawan join tahun X? Siapa yang masuk tahun X?"},
+            # Group 6 — Training
+            {"name": "training_wajib_not_completed",    "endpoint": "/tools/training_wajib_not_completed",    "method": "GET", "description": "Karyawan yang belum menyelesaikan training wajib (mandatory)"},
+            {"name": "training_completion_by_outlet",   "endpoint": "/tools/training_completion_by_outlet",   "method": "GET", "description": "Outlet dengan tingkat penyelesaian training wajib terendah"},
+            {"name": "certification_not_completed",     "endpoint": "/tools/certification_not_completed",     "method": "GET", "description": "Karyawan yang belum menyelesaikan modul sertifikasi/assessment"},
+            {"name": "training_not_started",            "endpoint": "/tools/training_not_started",            "method": "GET", "description": "Karyawan yang sudah bekerja tapi belum mulai training sama sekali"},
+            {"name": "training_low_score",              "endpoint": "/tools/training_low_score",              "method": "GET", "description": "Karyawan yang sudah selesai training tapi nilai post-test rendah"},
+            {"name": "training_most_failed",            "endpoint": "/tools/training_most_failed",            "method": "GET", "description": "Modul training yang paling banyak tidak diselesaikan karyawan"},
+            {"name": "role_certification_not_completed","endpoint": "/tools/role_certification_not_completed","method": "GET", "description": "Karyawan yang belum mendapat sertifikasi role/jabatan spesifik"},
+            {"name": "training_not_started_3months",    "endpoint": "/tools/training_not_started_3months",    "method": "GET", "description": "Karyawan yang sudah bekerja lebih dari N bulan tapi belum selesai training"},
+            {"name": "leader_training_not_completed",   "endpoint": "/tools/leader_training_not_completed",   "method": "GET", "description": "Karyawan dengan modul kepemimpinan yang belum menyelesaikan training leader"},
+            {"name": "safety_training_not_completed",   "endpoint": "/tools/safety_training_not_completed",   "method": "GET", "description": "Karyawan yang belum menyelesaikan training keselamatan kerja (safety/K3)"},
+            {"name": "sop_training_not_completed",      "endpoint": "/tools/sop_training_not_completed",      "method": "GET", "description": "Karyawan yang belum menyelesaikan training SOP/prosedur operasional"},
         ],
     }
 
@@ -1051,4 +1195,391 @@ def list_employees_by_join_year(
         "scope":     scope,
         "employees": result,
         "summary":   f"Ada {len(result)} karyawan yang bergabung pada tahun {year} ({scope}).",
+    }
+
+
+# ══════════════════════════════════════════════════════════════════
+# GROUP 6 — Training (from all_employee_training_data.csv)
+# ══════════════════════════════════════════════════════════════════
+
+def _training_rows_by_employee(df: pd.DataFrame, outlet_name: Optional[str], limit: int) -> list:
+    """Deduplicate by full_name, return one row per unique employee."""
+    df = df.drop_duplicates(subset="full_name")
+    if outlet_name:
+        df = df[df["outlet_name"].str.contains(outlet_name, case=False, na=False)]
+    result = []
+    for _, r in df.head(limit).iterrows():
+        result.append({
+            "full_name":   r["full_name"],
+            "outlet_name": r["outlet_name"],
+            "brand_name":  r["brand_name"],
+            "join_date":   r["join_date"].strftime("%Y-%m-%d") if pd.notna(r["join_date"]) else None,
+            "status_training_wajib":    r["status_training_wajib"],
+            "status_training_optional": r["status_training_optional"],
+        })
+    return result
+
+
+def _training_rows_by_module(df: pd.DataFrame, outlet_name: Optional[str], limit: int) -> list:
+    """Deduplicate by full_name + module_name, return one row per employee-module pair."""
+    df = df.drop_duplicates(subset=["full_name", "module_name"])
+    if outlet_name:
+        df = df[df["outlet_name"].str.contains(outlet_name, case=False, na=False)]
+    result = []
+    for _, r in df.head(limit).iterrows():
+        result.append({
+            "full_name":   r["full_name"],
+            "outlet_name": r["outlet_name"],
+            "brand_name":  r["brand_name"],
+            "module_name": r["module_name"],
+            "join_date":   r["join_date"].strftime("%Y-%m-%d") if pd.notna(r["join_date"]) else None,
+            "status_training_wajib":    r["status_training_wajib"],
+            "status_training_optional": r["status_training_optional"],
+        })
+    return result
+
+
+@app.get("/tools/training_wajib_not_completed", summary="Karyawan belum selesai training wajib")
+def training_wajib_not_completed(
+    outlet_name: Optional[str] = Query(None, description="Filter nama outlet (partial match)"),
+    brand_name:  Optional[str] = Query(None, description="Filter nama brand (partial match)"),
+    limit:       int           = Query(100,  description="Maks jumlah baris dikembalikan"),
+):
+    """
+    List employees whose status_training_wajib is 'not yet'. Deduplicated by full_name.
+    Answers: "Siapa belum training wajib?"
+    """
+    df = load_training_df()
+    df = df[df["status_training_wajib"] == "not yet"]
+    if brand_name:
+        df = df[df["brand_name"].str.contains(brand_name, case=False, na=False)]
+    df = df.drop_duplicates(subset="full_name")
+    if outlet_name:
+        df = df[df["outlet_name"].str.contains(outlet_name, case=False, na=False)]
+    total  = len(df)
+    result = _training_rows_by_employee(df, outlet_name=None, limit=limit)
+    return {
+        "total":     total,
+        "returned":  len(result),
+        "employees": result,
+        "summary":   f"Ada {total} karyawan (unik) yang belum menyelesaikan training wajib.",
+    }
+
+
+@app.get("/tools/training_completion_by_outlet", summary="Tingkat penyelesaian training wajib per outlet")
+def training_completion_by_outlet(
+    top_n:      int           = Query(10,  description="Tampilkan N outlet terendah"),
+    brand_name: Optional[str] = Query(None, description="Filter nama brand (partial match)"),
+):
+    """
+    Outlets sorted by mandatory-training completion rate (ascending = lowest first).
+    Counts unique employees (by full_name) per outlet.
+    Answers: "Outlet mana training rendah?"
+    """
+    df = load_training_df()
+    if brand_name:
+        df = df[df["brand_name"].str.contains(brand_name, case=False, na=False)]
+    # Deduplicate by full_name so each employee is counted once per outlet
+    deduped = df.drop_duplicates(subset=["full_name", "outlet_name"])
+    grp = deduped.groupby("outlet_name")["status_training_wajib"].apply(
+        lambda x: (x == "done").sum() / len(x) * 100 if len(x) else 0
+    ).reset_index()
+    grp.columns = ["outlet_name", "completion_rate_pct"]
+    counts = deduped.groupby("outlet_name").agg(
+        total  =("full_name", "count"),
+        done   =("status_training_wajib", lambda x: (x == "done").sum()),
+    ).reset_index()
+    grp = grp.merge(counts, on="outlet_name")
+    grp["not_yet"] = grp["total"] - grp["done"]
+    grp = grp.sort_values("completion_rate_pct").head(top_n)
+    result = [
+        {
+            "outlet_name":         r["outlet_name"],
+            "total_employees":     int(r["total"]),
+            "done":                int(r["done"]),
+            "not_yet":             int(r["not_yet"]),
+            "completion_rate_pct": round(float(r["completion_rate_pct"]), 1),
+        }
+        for _, r in grp.iterrows()
+    ]
+    worst = result[0] if result else {}
+    return {
+        "outlets": result,
+        "summary": (
+            f"Outlet dengan tingkat training terendah: {worst.get('outlet_name')} "
+            f"({worst.get('completion_rate_pct')}% selesai dari {worst.get('total_employees')} karyawan)."
+        ),
+    }
+
+
+@app.get("/tools/certification_not_completed", summary="Karyawan belum selesai sertifikasi")
+def certification_not_completed(
+    outlet_name: Optional[str] = Query(None, description="Filter nama outlet (partial match)"),
+    limit:       int           = Query(100,  description="Maks jumlah baris dikembalikan"),
+):
+    """
+    Employees assigned to certification/assessment modules but status_training_wajib = 'not yet'.
+    Deduplicated by full_name + module_name.
+    Answers: "Siapa belum sertifikasi?"
+    """
+    df = load_training_df()
+    df = df[
+        df["module_name"].str.contains(CERT_MODULE_PATTERN, case=False, na=False, regex=True) &
+        (df["status_training_wajib"] == "not yet")
+    ]
+    df = df.drop_duplicates(subset=["full_name", "module_name"])
+    total  = len(df)
+    result = _training_rows_by_module(df, outlet_name, limit)
+    return {
+        "total":     total,
+        "returned":  len(result),
+        "employees": result,
+        "summary":   f"Ada {total} penugasan sertifikasi/assessment yang belum diselesaikan.",
+    }
+
+
+@app.get("/tools/training_not_started", summary="Karyawan belum mulai training sama sekali")
+def training_not_started(
+    outlet_name: Optional[str] = Query(None, description="Filter nama outlet (partial match)"),
+    limit:       int           = Query(100,  description="Maks jumlah baris dikembalikan"),
+):
+    """
+    Employees who have join_date (are working) but status_training_wajib = 'not yet'.
+    Deduplicated by full_name.
+    Answers: "Siapa belum training tapi sudah kerja?"
+    """
+    df = load_training_df()
+    df = df[
+        df["join_date"].notna() &
+        (df["status_training_wajib"] == "not yet")
+    ]
+    df = df.drop_duplicates(subset="full_name")
+    if outlet_name:
+        df = df[df["outlet_name"].str.contains(outlet_name, case=False, na=False)]
+    total  = len(df)
+    result = _training_rows_by_employee(df, outlet_name=None, limit=limit)
+    return {
+        "total":     total,
+        "returned":  len(result),
+        "employees": result,
+        "summary":   f"Ada {total} karyawan (unik) yang sudah bekerja tapi belum menyelesaikan training wajib.",
+    }
+
+
+@app.get("/tools/training_low_score", summary="Karyawan dengan nilai post-test rendah")
+def training_low_score(
+    threshold:   int           = Query(70,   description="Batas nilai rendah (default 70)"),
+    outlet_name: Optional[str] = Query(None, description="Filter nama outlet (partial match)"),
+    limit:       int           = Query(100,  description="Maks jumlah baris dikembalikan"),
+):
+    """
+    Employees who completed training (done) but scored below threshold.
+    Deduplicated by full_name + module_name, sorted by score ascending.
+    Answers: "Siapa training score rendah?"
+    """
+    df = load_training_df()
+    df = df[
+        (df["status_training_wajib"] == "done") &
+        df["post_test_grade"].notna() &
+        (df["post_test_grade"] < threshold)
+    ]
+    df = df.drop_duplicates(subset=["full_name", "module_name"]).sort_values("post_test_grade")
+    if outlet_name:
+        df = df[df["outlet_name"].str.contains(outlet_name, case=False, na=False)]
+    total = len(df)
+    result = []
+    for _, r in df.head(limit).iterrows():
+        result.append({
+            "full_name":       r["full_name"],
+            "outlet_name":     r["outlet_name"],
+            "brand_name":      r["brand_name"],
+            "module_name":     r["module_name"],
+            "post_test_grade": float(r["post_test_grade"]),
+            "join_date":       r["join_date"].strftime("%Y-%m-%d") if pd.notna(r["join_date"]) else None,
+        })
+    return {
+        "threshold": threshold,
+        "total":     total,
+        "returned":  len(result),
+        "employees": result,
+        "summary":   f"Ada {total} catatan nilai post-test di bawah {threshold} (unik per karyawan per modul).",
+    }
+
+
+@app.get("/tools/training_most_failed", summary="Modul training paling sering tidak diselesaikan")
+def training_most_failed(
+    top_n: int = Query(10, description="Tampilkan N modul teratas"),
+):
+    """
+    Training modules ranked by number of unique employees (by full_name) who haven't completed them.
+    Answers: "Training apa paling sering gagal?"
+    """
+    df = load_training_df()
+    # Count unique employees per module
+    grp = df.drop_duplicates(subset=["full_name", "module_name"]).groupby("module_name").agg(
+        total    =("full_name", "count"),
+        not_yet  =("status_training_wajib", lambda x: (x == "not yet").sum()),
+        done     =("status_training_wajib", lambda x: (x == "done").sum()),
+        avg_score=("post_test_grade", "mean"),
+    ).reset_index()
+    grp["failure_rate_pct"] = grp["not_yet"] / grp["total"] * 100
+    grp = grp.sort_values("not_yet", ascending=False).head(top_n)
+    result = [
+        {
+            "module_name":      r["module_name"],
+            "total_assigned":   int(r["total"]),
+            "not_completed":    int(r["not_yet"]),
+            "completed":        int(r["done"]),
+            "failure_rate_pct": round(float(r["failure_rate_pct"]), 1),
+            "avg_score":        round(float(r["avg_score"]), 1) if pd.notna(r["avg_score"]) else None,
+        }
+        for _, r in grp.iterrows()
+    ]
+    top = result[0] if result else {}
+    return {
+        "modules": result,
+        "summary": (
+            f"Modul paling sering tidak diselesaikan: '{top.get('module_name')}' "
+            f"dengan {top.get('not_completed')} karyawan belum selesai dari {top.get('total_assigned')} total."
+        ),
+    }
+
+
+@app.get("/tools/role_certification_not_completed", summary="Karyawan belum sertifikasi sesuai role")
+def role_certification_not_completed(
+    outlet_name: Optional[str] = Query(None, description="Filter nama outlet (partial match)"),
+    limit:       int           = Query(100,  description="Maks jumlah baris dikembalikan"),
+):
+    """
+    Employees assigned to role-specific certification modules (leadership, wine, halal, GMP)
+    but status_training_wajib = 'not yet'. Deduplicated by full_name + module_name.
+    Answers: "Siapa belum sertifikasi role?"
+    """
+    df = load_training_df()
+    df = df[
+        df["module_name"].str.contains(ROLE_CERT_MODULE_PATTERN, case=False, na=False, regex=True) &
+        (df["status_training_wajib"] == "not yet")
+    ]
+    df = df.drop_duplicates(subset=["full_name", "module_name"])
+    total  = len(df)
+    result = _training_rows_by_module(df, outlet_name, limit)
+    return {
+        "total":     total,
+        "returned":  len(result),
+        "employees": result,
+        "summary":   f"Ada {total} penugasan sertifikasi role/jabatan yang belum diselesaikan.",
+    }
+
+
+@app.get("/tools/training_not_started_3months", summary="Karyawan belum training padahal sudah N bulan kerja")
+def training_not_started_3months(
+    months:      int           = Query(3,    description="Minimal masa kerja dalam bulan (default 3)"),
+    outlet_name: Optional[str] = Query(None, description="Filter nama outlet (partial match)"),
+    limit:       int           = Query(100,  description="Maks jumlah baris dikembalikan"),
+):
+    """
+    Employees who joined more than N months ago but status_training_wajib = 'not yet'.
+    Deduplicated by full_name.
+    Answers: "Siapa belum training tapi sudah 3 bulan kerja?"
+    """
+    df     = load_training_df()
+    cutoff = pd.Timestamp(date.today()) - pd.DateOffset(months=months)
+    df = df[
+        df["join_date"].notna() &
+        (df["join_date"] <= cutoff) &
+        (df["status_training_wajib"] == "not yet")
+    ]
+    df = df.drop_duplicates(subset="full_name")
+    if outlet_name:
+        df = df[df["outlet_name"].str.contains(outlet_name, case=False, na=False)]
+    total  = len(df)
+    result = _training_rows_by_employee(df, outlet_name=None, limit=limit)
+    return {
+        "months":      months,
+        "cutoff_date": cutoff.strftime("%Y-%m-%d"),
+        "total":       total,
+        "returned":    len(result),
+        "employees":   result,
+        "summary": (
+            f"Ada {total} karyawan (unik) yang bergabung lebih dari {months} bulan lalu "
+            f"(sebelum {cutoff.strftime('%Y-%m-%d')}) tapi belum menyelesaikan training wajib."
+        ),
+    }
+
+
+@app.get("/tools/leader_training_not_completed", summary="Leader/manager belum selesai training kepemimpinan")
+def leader_training_not_completed(
+    outlet_name: Optional[str] = Query(None, description="Filter nama outlet (partial match)"),
+    limit:       int           = Query(100,  description="Maks jumlah baris dikembalikan"),
+):
+    """
+    Employees assigned to leadership training modules who haven't completed them.
+    Deduplicated by full_name + module_name.
+    Answers: "Siapa leader belum training leader?"
+    """
+    df = load_training_df()
+    df = df[
+        df["module_name"].str.contains(LEADER_MODULE_PATTERN, case=False, na=False, regex=True) &
+        (df["status_training_wajib"] == "not yet")
+    ]
+    df = df.drop_duplicates(subset=["full_name", "module_name"])
+    total  = len(df)
+    result = _training_rows_by_module(df, outlet_name, limit)
+    return {
+        "total":     total,
+        "returned":  len(result),
+        "employees": result,
+        "summary":   f"Ada {total} penugasan modul kepemimpinan yang belum diselesaikan.",
+    }
+
+
+@app.get("/tools/safety_training_not_completed", summary="Karyawan belum selesai training safety")
+def safety_training_not_completed(
+    outlet_name: Optional[str] = Query(None, description="Filter nama outlet (partial match)"),
+    limit:       int           = Query(100,  description="Maks jumlah baris dikembalikan"),
+):
+    """
+    Employees assigned to safety/K3/WSE/Food-Safety modules who haven't completed them.
+    Deduplicated by full_name + module_name.
+    Answers: "Siapa belum training safety?"
+    """
+    df = load_training_df()
+    df = df[
+        df["module_name"].str.contains(SAFETY_MODULE_PATTERN, case=False, na=False, regex=True) &
+        (df["status_training_wajib"] == "not yet")
+    ]
+    df = df.drop_duplicates(subset=["full_name", "module_name"])
+    total  = len(df)
+    result = _training_rows_by_module(df, outlet_name, limit)
+    return {
+        "total":     total,
+        "returned":  len(result),
+        "employees": result,
+        "summary":   f"Ada {total} penugasan modul safety/K3 yang belum diselesaikan.",
+    }
+
+
+@app.get("/tools/sop_training_not_completed", summary="Karyawan belum selesai training SOP")
+def sop_training_not_completed(
+    outlet_name: Optional[str] = Query(None, description="Filter nama outlet (partial match)"),
+    limit:       int           = Query(100,  description="Maks jumlah baris dikembalikan"),
+):
+    """
+    Employees assigned to SOP/procedure/sequence-of-service modules who haven't completed them.
+    Deduplicated by full_name + module_name.
+    Answers: "Siapa belum training SOP?"
+    """
+    df = load_training_df()
+    df = df[
+        df["module_name"].str.contains(SOP_MODULE_PATTERN, case=False, na=False, regex=True) &
+        (df["status_training_wajib"] == "not yet")
+    ]
+    df = df.drop_duplicates(subset=["full_name", "module_name"])
+    total  = len(df)
+    result = _training_rows_by_module(df, outlet_name, limit)
+    return {
+        "total":     total,
+        "returned":  len(result),
+        "employees": result,
+        "summary":   f"Ada {total} penugasan modul SOP/prosedur yang belum diselesaikan.",
     }
