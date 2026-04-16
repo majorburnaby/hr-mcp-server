@@ -1,6 +1,6 @@
 # HR Employee MCP Server v2.0.0
 
-FastAPI server yang meng-expose data karyawan sebagai **31 MCP tools** untuk integrasi dengan Dify.  
+FastAPI server yang meng-expose data karyawan sebagai **30 MCP tools** untuk integrasi dengan Dify.  
 Di-deploy di Vercel, terhubung ke Dify sebagai Custom Tool via OpenAPI schema.
 
 ---
@@ -10,9 +10,10 @@ Di-deploy di Vercel, terhubung ke Dify sebagai Custom Tool via OpenAPI schema.
 ```
 hr-mcp-server/
 ├── app/
-│   └── main.py              # FastAPI app — semua 31 tools
+│   └── main.py                                  # FastAPI app — semua 30 tools
 ├── data/
-│   └── employee_data.csv    # Dataset karyawan (wajib di-commit!)
+│   ├── employee_data.csv                         # Dataset karyawan (wajib di-commit!)
+│   └── all_employee_training_data_20260416.csv   # Dataset training (wajib di-commit!)
 ├── requirements.txt
 ├── vercel.json
 └── README.md
@@ -67,7 +68,7 @@ Server akan live di: `https://hr-mcp-server.vercel.app`
    ```
    https://hr-mcp-server.vercel.app/openapi.json
    ```
-4. Klik **Import** — semua 31 tools akan muncul otomatis.
+4. Klik **Import** — semua 30 tools akan muncul otomatis.
 
 ### Step 2 — Tambahkan ke Agent/Chatflow
 
@@ -85,7 +86,7 @@ Jika pertanyaan tidak bisa dijawab dari data yang ada, jelaskan datanya tidak te
 
 ---
 
-## 31 Tools — Referensi Lengkap
+## 30 Tools — Referensi Lengkap
 
 ### Group 1 — Headcount & Summary
 
@@ -134,21 +135,20 @@ Jika pertanyaan tidak bisa dijawab dari data yang ada, jelaskan datanya tidak te
 
 ### Group 6 — Training
 
-> Data dari `data/all_employee_training_data.csv`
+> Data dari `data/all_employee_training_data_20260416.csv`. Lulus = `post_test_grade >= 90`.
 
 | Tool | Endpoint | Contoh Pertanyaan |
 |---|---|---|
 | `training_wajib_not_completed` | `GET /tools/training_wajib_not_completed` | "Siapa belum training wajib?" |
-| `training_completion_by_outlet` | `GET /tools/training_completion_by_outlet` | "Outlet mana training rendah?" |
-| `certification_not_completed` | `GET /tools/certification_not_completed` | "Siapa belum sertifikasi?" |
-| `training_not_started` | `GET /tools/training_not_started` | "Siapa belum training tapi sudah kerja?" |
+| `training_completion_by_outlet` | `GET /tools/training_completion_by_outlet` | "Outlet mana completion training paling rendah?" |
+| `training_not_started` | `GET /tools/training_not_started` | "Siapa ada di LMS tapi progress masih 0?" |
+| `safety_training_not_completed` | `GET /tools/safety_training_not_completed` | "Siapa belum training safety/K3?" |
+| `sop_training_not_completed` | `GET /tools/sop_training_not_completed` | "Siapa belum training SOP?" |
+| `onboarding_not_completed` | `GET /tools/onboarding_not_completed` | "Siapa belum selesai onboarding & sudah > 7 hari kerja?" |
+| `training_incomplete_assigned` | `GET /tools/training_incomplete_assigned` | "Siapa saja yang belum menyelesaikan training yang sudah di assign?" |
 | `training_low_score` | `GET /tools/training_low_score` | "Siapa training score rendah?" |
 | `training_most_failed` | `GET /tools/training_most_failed` | "Training apa paling sering gagal?" |
-| `role_certification_not_completed` | `GET /tools/role_certification_not_completed` | "Siapa belum sertifikasi role?" |
-| `training_not_started_3months` | `GET /tools/training_not_started_3months` | "Siapa belum training tapi sudah 3 bulan kerja?" |
-| `leader_training_not_completed` | `GET /tools/leader_training_not_completed` | "Siapa leader belum training leader?" |
-| `safety_training_not_completed` | `GET /tools/safety_training_not_completed` | "Siapa belum training safety?" |
-| `sop_training_not_completed` | `GET /tools/sop_training_not_completed` | "Siapa belum training SOP?" |
+| `training_prepost_comparison` | `GET /tools/training_prepost_comparison` | "Perbandingan pre-test vs post-test per modul?" |
 
 ---
 
@@ -209,17 +209,20 @@ Pertanyaan berikut memerlukan data tambahan yang tidak ada di CSV saat ini:
 
 | Pertanyaan | Data yang Dibutuhkan |
 |---|---|
-| "Siapa belum onboarding lengkap?" | Field `onboarding_status` |
 | "Siapa belum upload dokumen?" | Field `document_status` atau tabel dokumen |
 | "Siapa belum BPJS?" | Field `bpjs_status` dari sistem benefit |
 | "Siapa belum payroll setup?" | Field `payroll_status` dari sistem payroll |
 | "Outlet mana kelebihan/kekurangan staff?" | Field `target_headcount` per outlet |
+| "Perbandingan pre vs post-test bulan ini (filter by training date)" | Kolom `training_date` di data training |
 
 ---
 
-## Update Data Karyawan
+## Update Data
 
-Ganti file `data/employee_data.csv` dengan export terbaru, lalu redeploy ke Vercel.  
+**Karyawan:** Ganti `data/employee_data.csv` dengan export terbaru, lalu redeploy ke Vercel.
+
+**Training:** Ganti `data/all_employee_training_data_20260416.csv` dengan file baru, update nilai `TRAINING_DATA_PATH` di `app/main.py` jika nama file berubah, lalu redeploy.
+
 Server membaca CSV setiap request — tidak perlu database.
 
 **Format kolom CSV yang diharapkan:**

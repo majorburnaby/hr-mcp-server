@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-FastAPI server exposing **HR employee data as MCP tools** for integration with Dify. The server reads from a CSV file on every request (no database), serves a hand-crafted OpenAPI 3.0.3 schema (Dify cannot parse FastAPI's default 3.1.0), and is deployed on Vercel.
+FastAPI server exposing **HR employee data as MCP tools** for integration with Dify. The server reads from CSV files on every request (no database), serves a hand-crafted OpenAPI 3.0.3 schema (Dify cannot parse FastAPI's default 3.1.0), and is deployed on Vercel.
 
 ## Commands
 
@@ -31,26 +31,28 @@ Everything lives in a single file: [app/main.py](app/main.py)
 
 - **MCP manifest at `GET /`**: Returns a JSON manifest that Dify uses to discover tools. The `tools` list here must stay in sync with the actual `OPENAPI_SCHEMA` paths and the `@app.get("/tools/...")` route definitions.
 
-**Tool groups (31 tools total):**
+**Tool groups (30 tools total):**
 1. **Headcount & Summary** — `total_active_employees`, `employee_summary`, `headcount_per_outlet`, `headcount_per_level`, `headcount_per_branch`
 2. **Contracts & Lifecycle** — `contracts_expiring`, `contracts_missing_enddate`, `probation_employees`, `new_hires`
 3. **Resign & Turnover** — `resigned_employees`, `resign_by_position`, `turnover_per_outlet`
 4. **Search & Roster** — `search_employee`, `list_by_department`, `list_by_outlet`, `list_all_employees`, `list_active_by_status`, `list_employees_by_join_year`
 5. **Assignment Gaps** — `unassigned_employees`, `outlets_without_leader`
-6. **Training** (from `all_employee_training_data.csv`) — `training_wajib_not_completed`, `training_completion_by_outlet`, `certification_not_completed`, `training_not_started`, `training_low_score`, `training_most_failed`, `role_certification_not_completed`, `training_not_started_3months`, `leader_training_not_completed`, `safety_training_not_completed`, `sop_training_not_completed`
+6. **Training** (from `all_employee_training_data_20260416.csv`) — `training_wajib_not_completed`, `training_completion_by_outlet`, `training_not_started`, `safety_training_not_completed`, `sop_training_not_completed`, `onboarding_not_completed`, `training_incomplete_assigned`, `training_low_score`, `training_most_failed`, `training_prepost_comparison`
 
-**Training data** (`data/all_employee_training_data.csv`) — each row = one employee × one module assignment:
+**Training data** (`data/all_employee_training_data_20260416.csv`) — each row = one employee × one module assignment:
 
 | Column | Notes |
 |---|---|
-| `id_employee`, `full_name`, `outlet_name`, `brand_name` | identity fields |
-| `module_id`, `module_name`, `type` | training module (`course`/`webinar`) |
+| `employee_id`, `full_name`, `outlet_name`, `brand_name` | identity fields; dedup key is `employee_id` |
+| `module_name`, `type` | training module (`course`/`webinar`) |
 | `join_date` | employee's company join date |
-| `pre_test_grade`, `post_test_grade` | numeric scores; `post_test_grade` only non-null for `status_training_wajib=done` |
-| `status_training_wajib` | `done` / `not yet` — **employee-level flag** (same value across all rows for a given employee) |
+| `pre_test_grade`, `post_test_grade` | numeric scores (null = not yet taken) |
+| `status_training_wajib` | `done` / `not yet` — mandatory training status |
 | `status_training_optional` | `done` / `not yet` — optional training status |
 
-Module keyword constants for categorisation (defined near `SPV_PATTERN`): `SAFETY_MODULE_PATTERN`, `SOP_MODULE_PATTERN`, `LEADER_MODULE_PATTERN`, `CERT_MODULE_PATTERN`, `ROLE_CERT_MODULE_PATTERN`.
+**Completion threshold:** `post_test_grade >= 90` is used as the pass/completion benchmark across all training tools.
+
+Module keyword constants for categorisation (defined near `SPV_PATTERN`): `SAFETY_MODULE_PATTERN`, `SOP_MODULE_PATTERN`, `ONBOARDING_MODULE_PATTERN`.
 
 **CSV column contract** (`data/employee_data.csv`):
 
@@ -78,6 +80,7 @@ SPV_PATTERN = "manager|supervisor|spv|head|lead|chief|director|koordinator|capta
 Deployed via Vercel using `@vercel/python`. Config in [vercel.json](vercel.json) routes all traffic to `app/main.py`. The `data/` folder must be committed — it is the live data source.
 
 To update employee data: replace `data/employee_data.csv` and redeploy.
+To update training data: replace `data/all_employee_training_data_20260416.csv` (or update `TRAINING_DATA_PATH` to point to the new filename) and redeploy.
 
 ## Dify Integration
 
