@@ -27,38 +27,45 @@ Everything lives in a single file: [app/main.py](app/main.py)
 
 - **Static OpenAPI schema**: FastAPI's auto-generated schema is disabled (`openapi_url=None`, `docs_url=None`). Instead, `OPENAPI_SCHEMA` is a hand-written `3.0.3` dict served at `GET /openapi.json`. When adding a new tool, you must add its path entry to `OPENAPI_SCHEMA` **and** add it to the manifest list in `GET /`.
 
-- **CSV as data source**: `load_df()` reads `data/employee_data.csv` on every request using pandas. The CSV must be committed to the repo (Vercel has no persistent filesystem). No caching — if the dataset grows large, consider adding Redis.
+- **CSV as data source**: `load_df()` reads `data/employee_data_20260417.csv` and `load_training_df()` reads `data/all_employee_training_data_20260417.csv` on every request using pandas. The CSVs must be committed to the repo (Vercel has no persistent filesystem). No caching — if the dataset grows large, consider adding Redis.
 
 - **MCP manifest at `GET /`**: Returns a JSON manifest that Dify uses to discover tools. The `tools` list here must stay in sync with the actual `OPENAPI_SCHEMA` paths and the `@app.get("/tools/...")` route definitions.
 
-**Tool groups (30 tools total):**
+**Tool groups (33 tools total):**
 1. **Headcount & Summary** — `total_active_employees`, `employee_summary`, `headcount_per_outlet`, `headcount_per_level`, `headcount_per_branch`
 2. **Contracts & Lifecycle** — `contracts_expiring`, `contracts_missing_enddate`, `probation_employees`, `new_hires`
 3. **Resign & Turnover** — `resigned_employees`, `resign_by_position`, `turnover_per_outlet`
 4. **Search & Roster** — `search_employee`, `list_by_department`, `list_by_outlet`, `list_all_employees`, `list_active_by_status`, `list_employees_by_join_year`
 5. **Assignment Gaps** — `unassigned_employees`, `outlets_without_leader`
-6. **Training** (from `all_employee_training_data_20260416.csv`) — `training_wajib_not_completed`, `training_completion_by_outlet`, `training_not_started`, `safety_training_not_completed`, `sop_training_not_completed`, `onboarding_not_completed`, `training_incomplete_assigned`, `training_low_score`, `training_most_failed`, `training_prepost_comparison`
+6. **Training** (from `all_employee_training_data_20260417.csv`) — `training_wajib_not_completed`, `training_completion_by_outlet`, `training_not_started`, `safety_training_not_completed`, `sop_training_not_completed`, `onboarding_not_completed`, `training_incomplete_assigned`, `training_low_score`, `training_most_failed`, `training_prepost_comparison`, `get_employee_training`, `list_training_modules`
+7. **Export** — `get_export_link`
 
-**Training data** (`data/all_employee_training_data_20260416.csv`) — each row = one employee × one module assignment:
+**Training data** (`data/all_employee_training_data_20260417.csv`) — each row = one employee × one module assignment:
 
 | Column | Notes |
 |---|---|
-| `employee_id`, `full_name`, `outlet_name`, `brand_name` | identity fields; dedup key is `employee_id` |
-| `module_name`, `type` | training module (`course`/`webinar`) |
+| `employee_id`, `first_name`, `last_name`, `full_name` | identity fields; dedup key is `employee_id` |
+| `outlet_name` | outlet or department name |
+| `is_outlet` | `1` = real outlet, `0` = HO / Central Kitchen |
+| `brand_name`, `company_code` | org hierarchy |
+| `module_type` | format of training: `course` / `webinar` / etc |
+| `module_name` | training module name |
+| `module_assigned_date` | date the module was assigned to the employee |
+| `pre_test_status`, `pre_test_grade` | pre-test taken flag and numeric score (null = not taken) |
+| `post_test_status`, `post_test_grade` | post-test taken flag and numeric score (null = not taken) |
 | `join_date` | employee's company join date |
-| `pre_test_grade`, `post_test_grade` | numeric scores (null = not yet taken) |
-| `status_training_wajib` | `done` / `not yet` — mandatory training status |
-| `status_training_optional` | `done` / `not yet` — optional training status |
+| `is_module_mandatory` | `1` = mandatory, `0` = optional |
 
 **Completion threshold:** `post_test_grade >= 90` is used as the pass/completion benchmark across all training tools.
 
 Module keyword constants for categorisation (defined near `SPV_PATTERN`): `SAFETY_MODULE_PATTERN`, `SOP_MODULE_PATTERN`, `ONBOARDING_MODULE_PATTERN`.
 
-**CSV column contract** (`data/employee_data.csv`):
+**CSV column contract** (`data/employee_data_20260417.csv`):
 
 | Column | Values |
 |---|---|
-| `full_name`, `employee_id`, `department`, `outlet`, `job_position`, `branch` | strings |
+| `role`, `full_name`, `employee_id` | strings |
+| `organization_name`, `department`, `outlet`, `job_position`, `branch` | strings |
 | `job_level` | integer |
 | `join_date`, `resign_date`, `end_employment_date` | `YYYY-MM-DD` or empty |
 | `employee_data_status` | `Active` / `Inactive` |
@@ -68,6 +75,14 @@ Module keyword constants for categorisation (defined near `SPV_PATTERN`): `SAFET
 ```python
 SPV_PATTERN = "manager|supervisor|spv|head|lead|chief|director|koordinator|captain"
 ```
+
+**Export system** — `GET /export` (file download, not MCP) + `GET /tools/get_export_link` (MCP tool):
+- Dify calls `get_export_link` with `tool_name` matching the previous tool call and the same filter params
+- Returns `download_url` pointing to `/export?tool=...&format=excel&...` — Dify presents this as a clickable link
+- User clicks → browser downloads CSV or Excel (via `openpyxl`)
+- `TOOL_FUNCTIONS` dict (end of [app/main.py](app/main.py)) maps all 32 tool names → handler functions
+- `TOOL_ARRAY_KEY` maps tool names → response list key (`"employees"`, `"outlets"`, `"modules"`, etc.)
+- Nested structures auto-flattened: `get_employee_training` (one row/module), `training_incomplete_assigned` (modules joined as CSV string), `list_active_by_status` (groups flattened with `employment_status_group` column)
 
 ## Adding a New Tool
 
@@ -79,8 +94,8 @@ SPV_PATTERN = "manager|supervisor|spv|head|lead|chief|director|koordinator|capta
 
 Deployed via Vercel using `@vercel/python`. Config in [vercel.json](vercel.json) routes all traffic to `app/main.py`. The `data/` folder must be committed — it is the live data source.
 
-To update employee data: replace `data/employee_data.csv` and redeploy.
-To update training data: replace `data/all_employee_training_data_20260416.csv` (or update `TRAINING_DATA_PATH` to point to the new filename) and redeploy.
+To update employee data: replace `data/employee_data_20260417.csv` (or update `DATA_PATH` in [app/main.py](app/main.py)) and redeploy.
+To update training data: replace `data/all_employee_training_data_20260417.csv` (or update `TRAINING_DATA_PATH`) and redeploy.
 
 ## Dify Integration
 

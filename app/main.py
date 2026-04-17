@@ -6,11 +6,12 @@ MCP-compatible API server for Dify tool integration.
 
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 import pandas as pd
 from datetime import date
 from typing import Optional
-import os
+import os, io, inspect
+from urllib.parse import urlencode
 
 # ── App ───────────────────────────────────────────────────────────────────────
 
@@ -227,7 +228,7 @@ OPENAPI_SCHEMA = {
     "/tools/training_wajib_not_completed": {"get": {
       "operationId": "training_wajib_not_completed",
       "summary": "Karyawan belum selesai training wajib",
-      "description": "Daftar karyawan unik yang status_training_wajib masih 'not yet'. Jawab: Siapa belum training wajib? Siapa yang belum menyelesaikan training mandatory?",
+      "description": "Daftar karyawan unik yang is_module_mandatory=1 dan post_test_grade null atau < 90. Jawab: Siapa belum training wajib? Siapa yang belum menyelesaikan training mandatory?",
       "parameters": [
         {"name": "outlet_name", "in": "query", "required": False, "schema": {"type": "string",  "nullable": True}, "description": "Filter nama outlet (partial match)"},
         {"name": "brand_name",  "in": "query", "required": False, "schema": {"type": "string",  "nullable": True}, "description": "Filter nama brand (partial match)"},
@@ -293,7 +294,7 @@ OPENAPI_SCHEMA = {
     "/tools/training_incomplete_assigned": {"get": {
       "operationId": "training_incomplete_assigned",
       "summary": "Karyawan belum menyelesaikan training yang sudah di-assign",
-      "description": "Karyawan yang masih punya training belum selesai (status_training_wajib atau status_training_optional = not yet), beserta daftar modul yang belum diselesaikan. Jawab: Siapa saja yang belum menyelesaikan training yang sudah di assign?",
+      "description": "Karyawan yang masih punya training belum selesai (post_test_grade null atau < 90), beserta daftar modul yang belum diselesaikan, termasuk jumlah modul wajib dan opsional. Jawab: Siapa saja yang belum menyelesaikan training yang sudah di assign?",
       "parameters": [
         {"name": "outlet_name", "in": "query", "required": False, "schema": {"type": "string",  "nullable": True}, "description": "Filter nama outlet (partial match)"},
         {"name": "brand_name",  "in": "query", "required": False, "schema": {"type": "string",  "nullable": True}, "description": "Filter nama brand (partial match)"},
@@ -331,6 +332,50 @@ OPENAPI_SCHEMA = {
         {"name": "brand_name",  "in": "query", "required": False, "schema": {"type": "string", "nullable": True}, "description": "Filter nama brand (partial match)"}
       ],
       "responses": {"200": {"description": "OK", "content": {"application/json": {"schema": {"type": "object"}}}}}
+    }},
+    "/tools/get_employee_training": {"get": {
+      "operationId": "get_employee_training",
+      "summary": "Daftar modul training yang diassign ke karyawan tertentu",
+      "description": "Cari semua modul training yang diassign ke karyawan berdasarkan nama atau employee_id. Jawab: Training apa saja yang diassign ke karyawan XX? Modul apa yang sudah/belum dikerjakan si XX?",
+      "parameters": [
+        {"name": "employee_name", "in": "query", "required": False, "schema": {"type": "string", "nullable": True}, "description": "Nama karyawan (partial match, case-insensitive)"},
+        {"name": "employee_id",   "in": "query", "required": False, "schema": {"type": "string", "nullable": True}, "description": "Employee ID (exact match)"}
+      ],
+      "responses": {"200": {"description": "OK", "content": {"application/json": {"schema": {"type": "object"}}}}}
+    }},
+    "/tools/list_training_modules": {"get": {
+      "operationId": "list_training_modules",
+      "summary": "Daftar semua modul training yang tersedia (deduplikasi)",
+      "description": "Tampilkan semua nama modul training unik dari data LMS. Jawab: Apa saja modul training yang ada? List semua training yang tersedia? Ada berapa modul wajib?",
+      "parameters": [
+        {"name": "brand_name",          "in": "query", "required": False, "schema": {"type": "string", "nullable": True}, "description": "Filter nama brand (partial match)"},
+        {"name": "is_module_mandatory",  "in": "query", "required": False, "schema": {"type": "string", "nullable": True}, "description": "Filter: '1' = wajib, '0' = opsional"}
+      ],
+      "responses": {"200": {"description": "OK", "content": {"application/json": {"schema": {"type": "object"}}}}}
+    }},
+    "/tools/get_export_link": {"get": {
+      "operationId": "get_export_link",
+      "summary": "Buat link download ekspor data ke CSV atau Excel",
+      "description": "Gunakan tool ini ketika user meminta export data. Panggil dengan tool_name yang sama persis seperti tool sebelumnya, beserta parameter filter yang sama. Jawab: Export ke excel, Download data ini, Simpan sebagai CSV, Ekspor hasilnya.",
+      "parameters": [
+        {"name": "tool_name",           "in": "query", "required": True,  "schema": {"type": "string"},                   "description": "Nama tool yang sebelumnya digunakan untuk mengambil data"},
+        {"name": "format",              "in": "query", "required": False, "schema": {"type": "string", "default": "excel"},"description": "'csv' atau 'excel' (default: excel)"},
+        {"name": "outlet_name",         "in": "query", "required": False, "schema": {"type": "string", "nullable": True}, "description": "Sama dengan filter outlet di tool sebelumnya"},
+        {"name": "brand_name",          "in": "query", "required": False, "schema": {"type": "string", "nullable": True}, "description": "Sama dengan filter brand di tool sebelumnya"},
+        {"name": "limit",               "in": "query", "required": False, "schema": {"type": "integer","default": 500},   "description": "Jumlah baris (default 500 untuk ekspor)"},
+        {"name": "top_n",               "in": "query", "required": False, "schema": {"type": "integer","nullable": True}, "description": "Sama dengan top_n di tool sebelumnya"},
+        {"name": "months",              "in": "query", "required": False, "schema": {"type": "integer","nullable": True}, "description": "Sama dengan months di tool sebelumnya"},
+        {"name": "days",                "in": "query", "required": False, "schema": {"type": "integer","nullable": True}, "description": "Sama dengan days di tool sebelumnya"},
+        {"name": "year",                "in": "query", "required": False, "schema": {"type": "integer","nullable": True}, "description": "Sama dengan year di tool sebelumnya"},
+        {"name": "name",                "in": "query", "required": False, "schema": {"type": "string", "nullable": True}, "description": "Sama dengan name di tool sebelumnya"},
+        {"name": "department",          "in": "query", "required": False, "schema": {"type": "string", "nullable": True}, "description": "Sama dengan department di tool sebelumnya"},
+        {"name": "threshold",           "in": "query", "required": False, "schema": {"type": "integer","nullable": True}, "description": "Sama dengan threshold di tool sebelumnya"},
+        {"name": "employee_name",       "in": "query", "required": False, "schema": {"type": "string", "nullable": True}, "description": "Sama dengan employee_name di tool sebelumnya"},
+        {"name": "employee_id",         "in": "query", "required": False, "schema": {"type": "string", "nullable": True}, "description": "Sama dengan employee_id di tool sebelumnya"},
+        {"name": "is_module_mandatory", "in": "query", "required": False, "schema": {"type": "string", "nullable": True}, "description": "Sama dengan is_module_mandatory di tool sebelumnya"},
+        {"name": "employment_status",   "in": "query", "required": False, "schema": {"type": "string", "nullable": True}, "description": "Sama dengan employment_status di tool sebelumnya"}
+      ],
+      "responses": {"200": {"description": "OK", "content": {"application/json": {"schema": {"type": "object"}}}}}
     }}
   }
 }
@@ -344,7 +389,7 @@ def openapi_schema():
 
 # ── Data loader ───────────────────────────────────────────────────────────────
 
-DATA_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "employee_data.csv")
+DATA_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "employee_data_20260417.csv")
 
 def load_df() -> pd.DataFrame:
     """Load and normalise employee CSV on every request."""
@@ -360,17 +405,18 @@ def load_df() -> pd.DataFrame:
 
 SPV_PATTERN = "manager|supervisor|spv|head|lead|chief|director|koordinator|captain"
 
-TRAINING_DATA_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "all_employee_training_data_20260416.csv")
+TRAINING_DATA_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "all_employee_training_data_20260417.csv")
 
 def load_training_df() -> pd.DataFrame:
     """Load and normalise training CSV on every request."""
     df = pd.read_csv(TRAINING_DATA_PATH, dtype=str)
     df.columns = [c.strip().lower() for c in df.columns]
-    df["join_date"] = pd.to_datetime(df["join_date"], errors="coerce")
-    df["pre_test_grade"]  = pd.to_numeric(df["pre_test_grade"],  errors="coerce")
-    df["post_test_grade"] = pd.to_numeric(df["post_test_grade"], errors="coerce")
-    df["status_training_wajib"]    = df["status_training_wajib"].str.strip().str.lower()
-    df["status_training_optional"] = df["status_training_optional"].str.strip().str.lower()
+    df["join_date"]            = pd.to_datetime(df["join_date"], errors="coerce")
+    df["module_assigned_date"] = pd.to_datetime(df["module_assigned_date"], errors="coerce")
+    df["pre_test_grade"]       = pd.to_numeric(df["pre_test_grade"],  errors="coerce")
+    df["post_test_grade"]      = pd.to_numeric(df["post_test_grade"], errors="coerce")
+    df["is_outlet"]            = df["is_outlet"].str.strip()
+    df["is_module_mandatory"]  = df["is_module_mandatory"].str.strip()
     return df
 
 # Keyword patterns for training module categorisation
@@ -434,6 +480,10 @@ def manifest():
             {"name": "training_low_score",             "endpoint": "/tools/training_low_score",             "method": "GET", "description": "Karyawan dengan post_test_grade null atau di bawah threshold. Jawab: Siapa training score rendah?"},
             {"name": "training_most_failed",           "endpoint": "/tools/training_most_failed",           "method": "GET", "description": "Top 5 modul dengan jumlah karyawan gagal (post_test_grade < 90) terbanyak. Jawab: Training apa paling sering gagal?"},
             {"name": "training_prepost_comparison",    "endpoint": "/tools/training_prepost_comparison",    "method": "GET", "description": "Perbandingan rata-rata pre_test_grade vs post_test_grade per modul. Jawab: Perbandingan pre-test vs post-test per modul?"},
+            {"name": "get_employee_training",          "endpoint": "/tools/get_employee_training",          "method": "GET", "description": "Daftar semua modul training yang diassign ke karyawan tertentu. Jawab: Training apa saja yang diassign ke karyawan XX?"},
+            {"name": "list_training_modules",          "endpoint": "/tools/list_training_modules",          "method": "GET", "description": "Daftar semua nama modul training unik dari LMS. Jawab: Apa saja modul training yang ada? List semua training yang tersedia?"},
+            # Export
+            {"name": "get_export_link",                "endpoint": "/tools/get_export_link",                "method": "GET", "description": "Buat link download ekspor data ke CSV/Excel. Panggil dengan tool_name yang sama seperti tool sebelumnya. Jawab: Export ke excel, Download data ini, Simpan sebagai CSV."},
         ],
     }
 
@@ -1206,10 +1256,9 @@ def _training_rows_by_employee(df: pd.DataFrame, outlet_name: Optional[str], lim
             "employee_id": r["employee_id"],
             "full_name":   r["full_name"],
             "outlet_name": r["outlet_name"],
+            "is_outlet":   r["is_outlet"],
             "brand_name":  r["brand_name"],
             "join_date":   r["join_date"].strftime("%Y-%m-%d") if pd.notna(r["join_date"]) else None,
-            "status_training_wajib":    r["status_training_wajib"],
-            "status_training_optional": r["status_training_optional"],
         })
     return result
 
@@ -1222,14 +1271,16 @@ def _training_rows_by_module(df: pd.DataFrame, outlet_name: Optional[str], limit
     result = []
     for _, r in df.head(limit).iterrows():
         result.append({
-            "employee_id": r["employee_id"],
-            "full_name":   r["full_name"],
-            "outlet_name": r["outlet_name"],
-            "brand_name":  r["brand_name"],
-            "module_name": r["module_name"],
-            "join_date":   r["join_date"].strftime("%Y-%m-%d") if pd.notna(r["join_date"]) else None,
-            "status_training_wajib":    r["status_training_wajib"],
-            "status_training_optional": r["status_training_optional"],
+            "employee_id":          r["employee_id"],
+            "full_name":            r["full_name"],
+            "outlet_name":          r["outlet_name"],
+            "is_outlet":            r["is_outlet"],
+            "brand_name":           r["brand_name"],
+            "module_name":          r["module_name"],
+            "module_type":          r["module_type"],
+            "is_module_mandatory":  r["is_module_mandatory"],
+            "module_assigned_date": r["module_assigned_date"].strftime("%Y-%m-%d") if pd.notna(r["module_assigned_date"]) else None,
+            "join_date":            r["join_date"].strftime("%Y-%m-%d") if pd.notna(r["join_date"]) else None,
         })
     return result
 
@@ -1245,7 +1296,10 @@ def training_wajib_not_completed(
     Answers: "Siapa belum training wajib?"
     """
     df = load_training_df()
-    df = df[df["status_training_wajib"] == "not yet"]
+    df = df[
+        (df["is_module_mandatory"] == "1") &
+        (df["post_test_grade"].isna() | (df["post_test_grade"] < 90))
+    ]
     if brand_name:
         df = df[df["brand_name"].str.contains(brand_name, case=False, na=False)]
     if outlet_name:
@@ -1273,6 +1327,7 @@ def training_completion_by_outlet(
     Answers: "Outlet mana training rendah?"
     """
     df = load_training_df()
+    df = df[df["is_outlet"] == "1"]
     if brand_name:
         df = df[df["brand_name"].str.contains(brand_name, case=False, na=False)]
     # Keep only rows with a recorded post_test_grade
@@ -1349,7 +1404,7 @@ def safety_training_not_completed(
     df = load_training_df()
     df = df[
         df["module_name"].str.contains(SAFETY_MODULE_PATTERN, case=False, na=False, regex=True) &
-        (df["status_training_wajib"] == "not yet")
+        (df["post_test_grade"].isna() | (df["post_test_grade"] < 90))
     ]
     if brand_name:
         df = df[df["brand_name"].str.contains(brand_name, case=False, na=False)]
@@ -1378,7 +1433,7 @@ def sop_training_not_completed(
     df = load_training_df()
     df = df[
         df["module_name"].str.contains(SOP_MODULE_PATTERN, case=False, na=False, regex=True) &
-        (df["status_training_wajib"] == "not yet")
+        (df["post_test_grade"].isna() | (df["post_test_grade"] < 90))
     ]
     if brand_name:
         df = df[df["brand_name"].str.contains(brand_name, case=False, na=False)]
@@ -1445,10 +1500,7 @@ def training_incomplete_assigned(
     Answers: "Siapa saja yang belum menyelesaikan training yang sudah di assign?"
     """
     df = load_training_df()
-    df = df[
-        (df["status_training_wajib"] == "not yet") |
-        (df["status_training_optional"] == "not yet")
-    ]
+    df = df[df["post_test_grade"].isna() | (df["post_test_grade"] < 90)]
     if brand_name:
         df = df[df["brand_name"].str.contains(brand_name, case=False, na=False)]
     if outlet_name:
@@ -1459,13 +1511,15 @@ def training_incomplete_assigned(
     grouped = (
         df.groupby("employee_id")
         .apply(lambda g: {
-            "employee_id":       g["employee_id"].iloc[0],
-            "full_name":         g["full_name"].iloc[0],
-            "outlet_name":       g["outlet_name"].iloc[0],
-            "brand_name":        g["brand_name"].iloc[0],
-            "join_date":         g["join_date"].iloc[0].strftime("%Y-%m-%d") if pd.notna(g["join_date"].iloc[0]) else None,
-            "incomplete_modules": sorted(g["module_name"].dropna().tolist()),
-            "total_incomplete":  len(g),
+            "employee_id":         g["employee_id"].iloc[0],
+            "full_name":           g["full_name"].iloc[0],
+            "outlet_name":         g["outlet_name"].iloc[0],
+            "brand_name":          g["brand_name"].iloc[0],
+            "join_date":           g["join_date"].iloc[0].strftime("%Y-%m-%d") if pd.notna(g["join_date"].iloc[0]) else None,
+            "incomplete_modules":  sorted(g["module_name"].dropna().tolist()),
+            "mandatory_incomplete": int((g["is_module_mandatory"] == "1").sum()),
+            "optional_incomplete":  int((g["is_module_mandatory"] == "0").sum()),
+            "total_incomplete":    len(g),
         })
         .tolist()
     )
@@ -1604,4 +1658,344 @@ def training_prepost_comparison(
             f"Peningkatan tertinggi: '{best.get('module_name')}' "
             f"(pre: {best.get('avg_pre_test')}, post: {best.get('avg_post_test')}, delta: +{best.get('delta')})."
         ),
+    }
+
+
+@app.get("/tools/get_employee_training", summary="Daftar modul training yang diassign ke karyawan")
+def get_employee_training(
+    employee_name: Optional[str] = Query(None, description="Nama karyawan (partial match, case-insensitive)"),
+    employee_id:   Optional[str] = Query(None, description="Employee ID (exact match)"),
+):
+    """
+    All training modules assigned to a specific employee, looked up by name or ID.
+    Answers: "Training apa saja yang diassign ke karyawan XX?"
+    """
+    df = load_training_df()
+    if not employee_name and not employee_id:
+        return {"employees": [], "summary": "Harap isi parameter employee_name atau employee_id."}
+    if employee_id:
+        df = df[df["employee_id"] == employee_id]
+    elif employee_name:
+        df = df[df["full_name"].str.contains(employee_name, case=False, na=False)]
+    if df.empty:
+        return {"employees": [], "summary": "Karyawan tidak ditemukan."}
+    df = df.drop_duplicates(subset=["employee_id", "module_name"])
+    result = []
+    for emp_id, grp in df.groupby("employee_id"):
+        r = grp.iloc[0]
+        modules = []
+        for _, row in grp.iterrows():
+            modules.append({
+                "module_name":          row["module_name"],
+                "module_type":          row["module_type"],
+                "is_module_mandatory":  row["is_module_mandatory"],
+                "module_assigned_date": row["module_assigned_date"].strftime("%Y-%m-%d") if pd.notna(row["module_assigned_date"]) else None,
+                "pre_test_grade":       float(row["pre_test_grade"])  if pd.notna(row["pre_test_grade"])  else None,
+                "post_test_grade":      float(row["post_test_grade"]) if pd.notna(row["post_test_grade"]) else None,
+                "post_test_status":     row["post_test_status"],
+            })
+        result.append({
+            "employee_id":   emp_id,
+            "full_name":     r["full_name"],
+            "outlet_name":   r["outlet_name"],
+            "brand_name":    r["brand_name"],
+            "total_modules": len(modules),
+            "modules":       sorted(modules, key=lambda x: x["module_name"]),
+        })
+    total_modules = sum(e["total_modules"] for e in result)
+    return {
+        "total_employees": len(result),
+        "employees":       result,
+        "summary":         f"Ditemukan {len(result)} karyawan dengan total {total_modules} modul training yang diassign.",
+    }
+
+
+@app.get("/tools/list_training_modules", summary="Daftar semua modul training (deduplikasi)")
+def list_training_modules(
+    brand_name:          Optional[str] = Query(None, description="Filter nama brand (partial match)"),
+    is_module_mandatory: Optional[str] = Query(None, description="Filter: '1' = wajib, '0' = opsional"),
+):
+    """
+    All unique training module names from the LMS data, optionally filtered.
+    Answers: "Apa saja modul training yang ada?"
+    """
+    df = load_training_df()
+    if brand_name:
+        df = df[df["brand_name"].str.contains(brand_name, case=False, na=False)]
+    if is_module_mandatory is not None:
+        df = df[df["is_module_mandatory"] == is_module_mandatory.strip()]
+    modules = (
+        df[["module_name", "module_type", "is_module_mandatory"]]
+        .drop_duplicates(subset="module_name")
+        .sort_values("module_name")
+    )
+    result = [
+        {
+            "module_name":         r["module_name"],
+            "module_type":         r["module_type"],
+            "is_module_mandatory": r["is_module_mandatory"],
+        }
+        for _, r in modules.iterrows()
+    ]
+    label = "wajib" if is_module_mandatory == "1" else ("opsional" if is_module_mandatory == "0" else "semua")
+    return {
+        "total_modules": len(result),
+        "modules":       result,
+        "summary":       f"Terdapat {len(result)} modul training {label} yang terdaftar di LMS.",
+    }
+
+
+# ══════════════════════════════════════════════════════════════════
+# EXPORT — /export (file download) + /tools/get_export_link (MCP)
+# ══════════════════════════════════════════════════════════════════
+
+TOOL_FUNCTIONS = {
+    "total_active_employees":   total_active_employees,
+    "employee_summary":         employee_summary,
+    "headcount_per_outlet":     headcount_per_outlet,
+    "headcount_per_level":      headcount_per_level,
+    "headcount_per_branch":     headcount_per_branch,
+    "contracts_expiring":       contracts_expiring,
+    "contracts_missing_enddate":contracts_missing_enddate,
+    "probation_employees":      probation_employees,
+    "new_hires":                new_hires,
+    "resigned_employees":       resigned_employees,
+    "resign_by_position":       resign_by_position,
+    "turnover_per_outlet":      turnover_per_outlet,
+    "search_employee":          search_employee,
+    "list_by_department":       list_by_department,
+    "list_by_outlet":           list_by_outlet,
+    "list_all_employees":       list_all_employees,
+    "list_active_by_status":    list_active_by_status,
+    "list_employees_by_join_year": list_employees_by_join_year,
+    "unassigned_employees":     unassigned_employees,
+    "outlets_without_leader":   outlets_without_leader,
+    "training_wajib_not_completed":  training_wajib_not_completed,
+    "training_completion_by_outlet": training_completion_by_outlet,
+    "training_not_started":          training_not_started,
+    "safety_training_not_completed": safety_training_not_completed,
+    "sop_training_not_completed":    sop_training_not_completed,
+    "onboarding_not_completed":      onboarding_not_completed,
+    "training_incomplete_assigned":  training_incomplete_assigned,
+    "training_low_score":            training_low_score,
+    "training_most_failed":          training_most_failed,
+    "training_prepost_comparison":   training_prepost_comparison,
+    "get_employee_training":         get_employee_training,
+    "list_training_modules":         list_training_modules,
+}
+
+# Maps tool name to the response key holding the main exportable list
+TOOL_ARRAY_KEY = {
+    "headcount_per_outlet":          "outlets",
+    "headcount_per_level":           "levels",
+    "headcount_per_branch":          "branches",
+    "contracts_expiring":            "contracts",
+    "contracts_missing_enddate":     "employees",
+    "probation_employees":           "employees",
+    "new_hires":                     "employees",
+    "resigned_employees":            "employees",
+    "resign_by_position":            "positions",
+    "turnover_per_outlet":           "outlets",
+    "search_employee":               "employees",
+    "list_by_department":            "employees",
+    "list_by_outlet":                "employees",
+    "list_all_employees":            "employees",
+    "list_employees_by_join_year":   "employees",
+    "unassigned_employees":          "employees",
+    "outlets_without_leader":        "outlets",
+    "training_wajib_not_completed":  "employees",
+    "training_completion_by_outlet": "outlets",
+    "training_not_started":          "employees",
+    "safety_training_not_completed": "employees",
+    "sop_training_not_completed":    "employees",
+    "onboarding_not_completed":      "employees",
+    "training_incomplete_assigned":  "employees",
+    "training_low_score":            "employees",
+    "training_most_failed":          "modules",
+    "training_prepost_comparison":   "modules",
+    "get_employee_training":         "employees",
+    "list_training_modules":         "modules",
+}
+
+
+def _call_tool_for_export(tool_name: str, raw_params: dict):
+    """Call a tool function by name, injecting only the params it accepts."""
+    fn = TOOL_FUNCTIONS.get(tool_name)
+    if fn is None:
+        return None
+    sig = inspect.signature(fn)
+    kwargs = {}
+    for param_name, param in sig.parameters.items():
+        if param_name in raw_params and raw_params[param_name] is not None:
+            kwargs[param_name] = raw_params[param_name]
+        else:
+            default = param.default
+            if hasattr(default, "default"):  # FastAPI FieldInfo
+                kwargs[param_name] = default.default
+            elif default is not inspect.Parameter.empty:
+                kwargs[param_name] = default
+            else:
+                kwargs[param_name] = None
+    return fn(**kwargs)
+
+
+def _extract_rows(result: dict, tool_name: str) -> list:
+    """Extract the main list from a tool response and flatten nested structures."""
+    # list_active_by_status returns {status: [employees], ...}
+    if tool_name == "list_active_by_status":
+        rows = []
+        for status, items in result.items():
+            if isinstance(items, list):
+                for emp in items:
+                    rows.append({**emp, "employment_status_group": status})
+        return rows
+
+    # get_employee_training: flatten one row per module
+    if tool_name == "get_employee_training":
+        rows = []
+        for emp in result.get("employees", []):
+            base = {k: v for k, v in emp.items() if k != "modules"}
+            for module in emp.get("modules", []):
+                rows.append({**base, **module})
+        return rows
+
+    # training_incomplete_assigned: join incomplete_modules list as string
+    if tool_name == "training_incomplete_assigned":
+        rows = []
+        for emp in result.get("employees", []):
+            row = {k: v for k, v in emp.items() if k != "incomplete_modules"}
+            row["incomplete_modules"] = ", ".join(emp.get("incomplete_modules", []))
+            rows.append(row)
+        return rows
+
+    array_key = TOOL_ARRAY_KEY.get(tool_name)
+    if array_key and array_key in result:
+        return result[array_key]
+
+    # Fallback: first list value in response
+    for v in result.values():
+        if isinstance(v, list):
+            return v
+
+    return [result]
+
+
+def _build_export_params(
+    outlet_name, brand_name, limit, top_n, months, days, year,
+    name, department, threshold, employee_name, employee_id,
+    is_module_mandatory, employment_status,
+) -> dict:
+    return {
+        "outlet_name": outlet_name, "brand_name": brand_name, "limit": limit,
+        "top_n": top_n, "months": months, "days": days, "year": year,
+        "name": name, "department": department, "threshold": threshold,
+        "employee_name": employee_name, "employee_id": employee_id,
+        "is_module_mandatory": is_module_mandatory,
+        "employment_status": employment_status,
+    }
+
+
+@app.get("/export", include_in_schema=False)
+def export_data(
+    tool:                str           = Query(...,   description="Tool name"),
+    format:              str           = Query("csv", description="'csv' or 'excel'"),
+    outlet_name:         Optional[str] = Query(None),
+    brand_name:          Optional[str] = Query(None),
+    limit:               Optional[int] = Query(500),
+    top_n:               Optional[int] = Query(None),
+    months:              Optional[int] = Query(None),
+    days:                Optional[int] = Query(None),
+    year:                Optional[int] = Query(None),
+    name:                Optional[str] = Query(None),
+    department:          Optional[str] = Query(None),
+    threshold:           Optional[int] = Query(None),
+    employee_name:       Optional[str] = Query(None),
+    employee_id:         Optional[str] = Query(None),
+    is_module_mandatory: Optional[str] = Query(None),
+    employment_status:   Optional[str] = Query(None),
+):
+    if tool not in TOOL_FUNCTIONS:
+        return JSONResponse({"error": f"Tool '{tool}' tidak ditemukan."}, status_code=404)
+
+    raw_params = _build_export_params(
+        outlet_name, brand_name, limit, top_n, months, days, year,
+        name, department, threshold, employee_name, employee_id,
+        is_module_mandatory, employment_status,
+    )
+    result = _call_tool_for_export(tool, raw_params)
+    if result is None:
+        return JSONResponse({"error": "Tool gagal dijalankan."}, status_code=500)
+
+    rows = _extract_rows(result, tool)
+    filename = f"{tool}_{date.today().strftime('%Y%m%d')}"
+
+    if format.lower() == "excel":
+        df = pd.DataFrame(rows)
+        buf = io.BytesIO()
+        with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+            df.to_excel(writer, index=False, sheet_name="Data")
+        return Response(
+            content=buf.getvalue(),
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f"attachment; filename={filename}.xlsx"},
+        )
+    else:
+        df = pd.DataFrame(rows)
+        return Response(
+            content=df.to_csv(index=False),
+            media_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename={filename}.csv"},
+        )
+
+
+@app.get("/tools/get_export_link", summary="Buat link download ekspor data")
+def get_export_link(
+    tool_name:           str           = Query(...,     description="Nama tool yang sebelumnya digunakan"),
+    format:              str           = Query("excel", description="'csv' atau 'excel'"),
+    outlet_name:         Optional[str] = Query(None),
+    brand_name:          Optional[str] = Query(None),
+    limit:               Optional[int] = Query(500),
+    top_n:               Optional[int] = Query(None),
+    months:              Optional[int] = Query(None),
+    days:                Optional[int] = Query(None),
+    year:                Optional[int] = Query(None),
+    name:                Optional[str] = Query(None),
+    department:          Optional[str] = Query(None),
+    threshold:           Optional[int] = Query(None),
+    employee_name:       Optional[str] = Query(None),
+    employee_id:         Optional[str] = Query(None),
+    is_module_mandatory: Optional[str] = Query(None),
+    employment_status:   Optional[str] = Query(None),
+):
+    """
+    Returns a download URL for exporting tool data as CSV or Excel.
+    Call with the same tool_name and filter params as the previous tool call.
+    Answers: "Export ke excel", "Download data ini", "Simpan sebagai CSV"
+    """
+    if tool_name not in TOOL_FUNCTIONS:
+        return {"error": f"Tool '{tool_name}' tidak ditemukan.", "summary": "Tool tidak valid."}
+
+    base = OPENAPI_SCHEMA["servers"][0]["url"]
+    params: dict = {"tool": tool_name, "format": format}
+    for k, v in [
+        ("outlet_name", outlet_name), ("brand_name", brand_name),
+        ("limit", limit), ("top_n", top_n), ("months", months),
+        ("days", days), ("year", year), ("name", name),
+        ("department", department), ("threshold", threshold),
+        ("employee_name", employee_name), ("employee_id", employee_id),
+        ("is_module_mandatory", is_module_mandatory),
+        ("employment_status", employment_status),
+    ]:
+        if v is not None:
+            params[k] = str(v)
+
+    ext = "xlsx" if format.lower() == "excel" else "csv"
+    filename = f"{tool_name}_{date.today().strftime('%Y%m%d')}.{ext}"
+    download_url = f"{base}/export?{urlencode(params)}"
+
+    return {
+        "download_url": download_url,
+        "filename":     filename,
+        "format":       format,
+        "summary":      f"Klik link berikut untuk mengunduh: [{filename}]({download_url})",
     }
