@@ -1256,9 +1256,9 @@ def _training_rows_by_employee(df: pd.DataFrame, outlet_name: Optional[str], lim
             "employee_id": r["employee_id"],
             "full_name":   r["full_name"],
             "outlet_name": r["outlet_name"],
-            "is_outlet":   r["is_outlet"],
+            # "is_outlet":   r["is_outlet"],
             "brand_name":  r["brand_name"],
-            "join_date":   r["join_date"].strftime("%Y-%m-%d") if pd.notna(r["join_date"]) else None,
+            # "join_date":   r["join_date"].strftime("%Y-%m-%d") if pd.notna(r["join_date"]) else None,
         })
     return result
 
@@ -1292,7 +1292,8 @@ def training_wajib_not_completed(
     limit:       int           = Query(100,  description="Maks jumlah baris dikembalikan"),
 ):
     """
-    List distinct employees whose status_training_wajib is 'not yet'. Deduplicated by employee_id.
+    Employees with at least one incomplete mandatory module (is_module_mandatory=1,
+    post_test_grade null or < 90), grouped with a list of their incomplete module names.
     Answers: "Siapa belum training wajib?"
     """
     df = load_training_df()
@@ -1304,9 +1305,24 @@ def training_wajib_not_completed(
         df = df[df["brand_name"].str.contains(brand_name, case=False, na=False)]
     if outlet_name:
         df = df[df["outlet_name"].str.contains(outlet_name, case=False, na=False)]
-    df = df.drop_duplicates(subset="employee_id")
-    total  = len(df)
-    result = _training_rows_by_employee(df, outlet_name=None, limit=limit)
+    df = df.drop_duplicates(subset=["employee_id", "module_name"])
+    grouped = (
+        df.groupby("employee_id")
+        .apply(lambda g: {
+            "employee_id":                g["employee_id"].iloc[0],
+            "full_name":                  g["full_name"].iloc[0],
+            "outlet_name":                g["outlet_name"].iloc[0],
+            "is_outlet":                  g["is_outlet"].iloc[0],
+            "brand_name":                 g["brand_name"].iloc[0],
+            "join_date":                  g["join_date"].iloc[0].strftime("%Y-%m-%d") if pd.notna(g["join_date"].iloc[0]) else None,
+            "incomplete_mandatory_modules": sorted(g["module_name"].dropna().tolist()),
+            "total_incomplete":           len(g),
+        })
+        .tolist()
+    )
+    grouped.sort(key=lambda x: x["total_incomplete"], reverse=True)
+    total  = len(grouped)
+    result = grouped[:limit]
     return {
         "total":     total,
         "returned":  len(result),
@@ -1865,6 +1881,15 @@ def _extract_rows(result: dict, tool_name: str) -> list:
         for emp in result.get("employees", []):
             row = {k: v for k, v in emp.items() if k != "incomplete_modules"}
             row["incomplete_modules"] = ", ".join(emp.get("incomplete_modules", []))
+            rows.append(row)
+        return rows
+
+    # training_wajib_not_completed: join incomplete_mandatory_modules list as string
+    if tool_name == "training_wajib_not_completed":
+        rows = []
+        for emp in result.get("employees", []):
+            row = {k: v for k, v in emp.items() if k != "incomplete_mandatory_modules"}
+            row["incomplete_mandatory_modules"] = ", ".join(emp.get("incomplete_mandatory_modules", []))
             rows.append(row)
         return rows
 
