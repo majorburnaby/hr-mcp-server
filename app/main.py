@@ -1530,13 +1530,20 @@ def safety_training_not_completed(
     total_outlets = len(by_outlet)
     by_outlet_list = [{"outlet_name": r["outlet_name"], "count": int(r["count"])} for _, r in by_outlet.head(10).iterrows()]
     result = _training_rows_by_module(df, outlet_name, limit)
+    mod_lines = "; ".join(f"'{m['module_name']}' ({m['count']} karyawan)" for m in by_module[:5])
+    outlet_lines = ", ".join(f"{o['outlet_name']} ({o['count']} karyawan)" for o in by_outlet_list[:3])
     return {
         "total":     total,
         "returned":  len(result),
         "employees": result,
         "by_module": by_module,
         "by_outlet": by_outlet_list,
-        "summary":   f"Ada {total} penugasan modul safety/K3 yang belum diselesaikan, tersebar di {total_outlets} outlet.",
+        "summary": (
+            f"Ada {total} penugasan modul safety/K3 yang belum diselesaikan, tersebar di {total_outlets} outlet. "
+            f"Breakdown per modul: {mod_lines}. "
+            f"Outlet dengan gap terbesar: {outlet_lines}. "
+            f"Perlu segera ditindaklanjuti — modul safety adalah persyaratan regulasi."
+        ),
     }
 
 
@@ -1593,9 +1600,10 @@ def sop_training_not_completed(
         "by_module":                by_module,
         "by_outlet":                by_outlet_list,
         "summary": (
-            f"Ada {total} penugasan modul SOP/prosedur yang belum diselesaikan, "
-            f"tersebar di {len(by_outlet_list)} outlet. "
-            f"{long_tenured} karyawan sudah bekerja > 60 hari."
+            f"Ada {total} penugasan modul SOP/prosedur yang belum diselesaikan, tersebar di {total_outlets} outlet. "
+            f"Breakdown per modul: {'; '.join(m['module_name'] + ' (' + str(m['count']) + ' karyawan)' for m in by_module[:5])}. "
+            f"Outlet dengan gap terbesar: {', '.join(o['outlet_name'] + ' (' + str(o['count']) + ' karyawan)' for o in by_outlet_list[:3])}. "
+            f"{long_tenured} karyawan sudah bekerja > 60 hari belum selesai SOP."
         ),
     }
 
@@ -1737,11 +1745,12 @@ def training_incomplete_assigned(
         "by_outlet":      by_outlet,
         "employees":      result,
         "summary": (
-            f"Ada {total} karyawan yang masih memiliki training belum diselesaikan. "
-            f"Belum mulai: {bucket_summary['not_started']}, "
-            f"Progress rendah: {bucket_summary['low_progress']}, "
-            f"Hampir selesai: {bucket_summary['high_progress']}, "
-            f"Materi selesai belum post-test: {bucket_summary['material_done_no_posttest']}."
+            f"Ada {total} karyawan dari {len(by_outlet)} outlet yang masih memiliki training belum diselesaikan. "
+            f"Rincian: {bucket_summary['not_started']} karyawan belum mulai sama sekali, "
+            f"{bucket_summary['low_progress']} karyawan progress rendah (belum aktif), "
+            f"{bucket_summary['high_progress']} karyawan hampir selesai (perlu dorongan), "
+            f"{bucket_summary['material_done_no_posttest']} karyawan selesai materi tapi belum post-test. "
+            f"Outlet dengan beban terbesar: {', '.join(o['outlet_name'] + ' (' + str(o['count']) + ' orang)' for o in by_outlet[:3])}."
         ),
     }
 
@@ -1840,13 +1849,16 @@ def training_most_failed(
         for _, r in grp.iterrows()
     ]
     top = result[0] if result else {}
+    module_lines = "; ".join(
+        f"'{m['module_name']}' fail rate {m['fail_rate_pct']}% ({m['failed_count']} dari {m['total_attempts']} gagal)"
+        for m in result
+    )
     return {
         "threshold": 90,
         "modules":   result,
         "summary": (
-            f"Modul paling sering gagal: '{top.get('module_name')}' "
-            f"dengan fail rate {top.get('fail_rate_pct')}% "
-            f"({top.get('failed_count')} dari {top.get('total_attempts')} karyawan gagal)."
+            f"Top {len(result)} modul dengan fail rate tertinggi: {module_lines}. "
+            f"Indikasi konten terlalu teknis atau perlu review soal pada modul dengan fail rate > 30%."
         ),
     }
 
@@ -1901,14 +1913,17 @@ def training_prepost_comparison(
         })
     best = result[0] if result else {}
     needs_review = [m["module_name"] for m in result if m["delta"] is not None and m["delta"] < 10]
-    review_msg = f" Modul perlu review konten: {', '.join(needs_review[:3])}." if needs_review else ""
+    top5_lines = "; ".join(
+        f"'{m['module_name']}': {m['avg_pre_test']}→{m['avg_post_test']} (+{m['delta']} poin, {m['improvement_label']})"
+        for m in result[:5]
+    )
+    review_msg = f" Modul delta < 10 poin (perlu review konten bulan depan): {', '.join(needs_review[:3])}." if needs_review else ""
     return {
         "total_modules": len(result),
         "modules":       result,
         "summary": (
             f"Perbandingan pre vs post test untuk {len(result)} modul. "
-            f"Peningkatan tertinggi: '{best.get('module_name')}' "
-            f"(pre: {best.get('avg_pre_test')}, post: {best.get('avg_post_test')}, delta: +{best.get('delta')})."
+            f"Top 5 peningkatan: {top5_lines}."
             f"{review_msg}"
         ),
     }
