@@ -1330,7 +1330,7 @@ def _training_rows_by_module(df: pd.DataFrame, outlet_name: Optional[str], limit
 def training_wajib_not_completed(
     outlet_name: Optional[str] = Query(None, description="Filter nama outlet (partial match)"),
     brand_name:  Optional[str] = Query(None, description="Filter nama brand (partial match)"),
-    limit:       int           = Query(100,  description="Maks jumlah baris dikembalikan"),
+    limit:       int           = Query(50,   description="Maks jumlah baris dikembalikan"),
 ):
     """
     Employees with at least one incomplete mandatory module (is_module_mandatory=1,
@@ -1353,10 +1353,6 @@ def training_wajib_not_completed(
         join_dt = g["join_date"].iloc[0]
         join_str = join_dt.strftime("%Y-%m-%d") if pd.notna(join_dt) else None
         days_since_join = int((pd.Timestamp(today) - join_dt).days) if pd.notna(join_dt) else None
-        grade_per_module = {
-            row["module_name"]: float(row["post_test_grade"]) if pd.notna(row["post_test_grade"]) else None
-            for _, row in g.iterrows()
-        }
         grouped.append({
             "employee_id":                emp_id,
             "full_name":                  g["full_name"].iloc[0],
@@ -1365,8 +1361,7 @@ def training_wajib_not_completed(
             "brand_name":                 g["brand_name"].iloc[0],
             "join_date":                  join_str,
             "days_since_join":            days_since_join,
-            "incomplete_mandatory_modules": sorted(g["module_name"].dropna().tolist()),
-            "post_test_grade_per_module": grade_per_module,
+            "incomplete_mandatory_modules": sorted(g["module_name"].dropna().tolist())[:5],
             "total_incomplete":           len(g),
         })
     grouped.sort(key=lambda x: x["total_incomplete"], reverse=True)
@@ -1375,8 +1370,7 @@ def training_wajib_not_completed(
     outlets_affected = len(set(e["outlet_name"] for e in grouped))
     priority = sum(
         1 for e in grouped
-        if (e["days_since_join"] is not None and e["days_since_join"] > 30)
-        or all(v is None for v in e["post_test_grade_per_module"].values())
+        if e["days_since_join"] is not None and e["days_since_join"] > 30
     )
     return {
         "total":     total,
@@ -1497,7 +1491,7 @@ def training_not_started(
 def safety_training_not_completed(
     outlet_name: Optional[str] = Query(None, description="Filter nama outlet (partial match)"),
     brand_name:  Optional[str] = Query(None, description="Filter nama brand (partial match)"),
-    limit:       int           = Query(100,  description="Maks jumlah baris dikembalikan"),
+    limit:       int           = Query(50,   description="Maks jumlah baris dikembalikan"),
 ):
     """
     Employees assigned to safety/K3/WSE/Food-Safety modules who haven't completed them.
@@ -1513,7 +1507,7 @@ def safety_training_not_completed(
         df = df[df["brand_name"].str.contains(brand_name, case=False, na=False)]
     df = df.drop_duplicates(subset=["employee_id", "module_name"])
     total  = len(df)
-    # by_module aggregation with per-outlet breakdown
+    # by_module aggregation with per-outlet breakdown (top 5 outlets each)
     by_module = []
     for mod_name, mod_grp in df.groupby("module_name"):
         outlets_in_mod = (
@@ -1524,16 +1518,17 @@ def safety_training_not_completed(
         by_module.append({
             "module_name": mod_name,
             "count": len(mod_grp),
-            "outlets": [{"outlet_name": r["outlet_name"], "count": int(r["count"])} for _, r in outlets_in_mod.iterrows()],
+            "top_outlets": [{"outlet_name": r["outlet_name"], "count": int(r["count"])} for _, r in outlets_in_mod.head(5).iterrows()],
         })
     by_module.sort(key=lambda x: x["count"], reverse=True)
-    # by_outlet aggregation
+    # by_outlet aggregation (top 10)
     by_outlet = (
         df.groupby("outlet_name")["employee_id"].count()
         .reset_index().rename(columns={"employee_id": "count"})
         .sort_values("count", ascending=False)
     )
-    by_outlet_list = [{"outlet_name": r["outlet_name"], "count": int(r["count"])} for _, r in by_outlet.iterrows()]
+    total_outlets = len(by_outlet)
+    by_outlet_list = [{"outlet_name": r["outlet_name"], "count": int(r["count"])} for _, r in by_outlet.head(10).iterrows()]
     result = _training_rows_by_module(df, outlet_name, limit)
     return {
         "total":     total,
@@ -1541,7 +1536,7 @@ def safety_training_not_completed(
         "employees": result,
         "by_module": by_module,
         "by_outlet": by_outlet_list,
-        "summary":   f"Ada {total} penugasan modul safety/K3 yang belum diselesaikan, tersebar di {len(by_outlet_list)} outlet.",
+        "summary":   f"Ada {total} penugasan modul safety/K3 yang belum diselesaikan, tersebar di {total_outlets} outlet.",
     }
 
 
@@ -1549,7 +1544,7 @@ def safety_training_not_completed(
 def sop_training_not_completed(
     outlet_name: Optional[str] = Query(None, description="Filter nama outlet (partial match)"),
     brand_name:  Optional[str] = Query(None, description="Filter nama brand (partial match)"),
-    limit:       int           = Query(100,  description="Maks jumlah baris dikembalikan"),
+    limit:       int           = Query(50,   description="Maks jumlah baris dikembalikan"),
 ):
     """
     Employees assigned to SOP/procedure modules who haven't completed them.
@@ -1565,7 +1560,7 @@ def sop_training_not_completed(
         df = df[df["brand_name"].str.contains(brand_name, case=False, na=False)]
     df = df.drop_duplicates(subset=["employee_id", "module_name"])
     total  = len(df)
-    # by_module aggregation with per-outlet breakdown
+    # by_module aggregation with per-outlet breakdown (top 5 outlets each)
     by_module = []
     for mod_name, mod_grp in df.groupby("module_name"):
         outlets_in_mod = (
@@ -1576,16 +1571,17 @@ def sop_training_not_completed(
         by_module.append({
             "module_name": mod_name,
             "count": len(mod_grp),
-            "outlets": [{"outlet_name": r["outlet_name"], "count": int(r["count"])} for _, r in outlets_in_mod.iterrows()],
+            "top_outlets": [{"outlet_name": r["outlet_name"], "count": int(r["count"])} for _, r in outlets_in_mod.head(5).iterrows()],
         })
     by_module.sort(key=lambda x: x["count"], reverse=True)
-    # by_outlet aggregation
+    # by_outlet aggregation (top 10)
     by_outlet = (
         df.groupby("outlet_name")["employee_id"].count()
         .reset_index().rename(columns={"employee_id": "count"})
         .sort_values("count", ascending=False)
     )
-    by_outlet_list = [{"outlet_name": r["outlet_name"], "count": int(r["count"])} for _, r in by_outlet.iterrows()]
+    total_outlets = len(by_outlet)
+    by_outlet_list = [{"outlet_name": r["outlet_name"], "count": int(r["count"])} for _, r in by_outlet.head(10).iterrows()]
     result = _training_rows_by_module(df, outlet_name, limit)
     # Flag employees who've been employed > 60 days
     long_tenured = sum(1 for e in result if e.get("days_since_join") is not None and e["days_since_join"] > 60)
@@ -1717,7 +1713,7 @@ def training_incomplete_assigned(
             "outlet_name":          g["outlet_name"].iloc[0],
             "brand_name":           g["brand_name"].iloc[0],
             "join_date":            g["join_date"].iloc[0].strftime("%Y-%m-%d") if pd.notna(g["join_date"].iloc[0]) else None,
-            "incomplete_modules":   sorted(g["module_name"].dropna().tolist()),
+            "incomplete_modules":   sorted(g["module_name"].dropna().tolist())[:5],
             "mandatory_incomplete": int((g["is_module_mandatory"] == "1").sum()),
             "optional_incomplete":  int((g["is_module_mandatory"] == "0").sum()),
             "total_incomplete":     len(g),
@@ -1733,7 +1729,7 @@ def training_incomplete_assigned(
     by_outlet_counts = {}
     for e in grouped:
         by_outlet_counts[e["outlet_name"]] = by_outlet_counts.get(e["outlet_name"], 0) + 1
-    by_outlet = sorted([{"outlet_name": k, "count": v} for k, v in by_outlet_counts.items()], key=lambda x: x["count"], reverse=True)
+    by_outlet = sorted([{"outlet_name": k, "count": v} for k, v in by_outlet_counts.items()], key=lambda x: x["count"], reverse=True)[:10]
     return {
         "total":          total,
         "returned":       len(result),
@@ -2245,7 +2241,7 @@ def weekly_ld_digest(
     )
     module_completion = [
         {"module_name": r["module_name"], "completion_rate_pct": float(r["completion_rate_pct"]), "status": r["status"]}
-        for _, r in mod_grp.sort_values("completion_rate_pct").iterrows()
+        for _, r in mod_grp.sort_values("completion_rate_pct").head(30).iterrows()
     ]
 
     # Overdue assignments
@@ -2263,7 +2259,7 @@ def weekly_ld_digest(
             "module_name":  r["module_name"],
             "days_overdue": int((today_ts - r["module_assigned_date"]).days),
         }
-        for _, r in overdue_df.sort_values("module_assigned_date").head(50).iterrows()
+        for _, r in overdue_df.sort_values("module_assigned_date").head(20).iterrows()
     ]
 
     modules_needing_attention = [m["module_name"] for m in module_completion if m["status"] in ("perlu perhatian", "kritis")]
