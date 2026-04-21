@@ -31,13 +31,13 @@ Everything lives in a single file: [app/main.py](app/main.py)
 
 - **MCP manifest at `GET /`**: Returns a JSON manifest that Dify uses to discover tools. The `tools` list here must stay in sync with the actual `OPENAPI_SCHEMA` paths and the `@app.get("/tools/...")` route definitions.
 
-**Tool groups (33 tools total):**
+**Tool groups (38 tools total):**
 1. **Headcount & Summary** — `total_active_employees`, `employee_summary`, `headcount_per_outlet`, `headcount_per_level`, `headcount_per_branch`
 2. **Contracts & Lifecycle** — `contracts_expiring`, `contracts_missing_enddate`, `probation_employees`, `new_hires`
 3. **Resign & Turnover** — `resigned_employees`, `resign_by_position`, `turnover_per_outlet`
 4. **Search & Roster** — `search_employee`, `list_by_department`, `list_by_outlet`, `list_all_employees`, `list_active_by_status`, `list_employees_by_join_year`
 5. **Assignment Gaps** — `unassigned_employees`, `outlets_without_leader`
-6. **Training** (from `all_employee_training_data_20260417.csv`) — `training_wajib_not_completed`, `training_completion_by_outlet`, `training_not_started`, `safety_training_not_completed`, `sop_training_not_completed`, `onboarding_not_completed`, `training_incomplete_assigned`, `training_low_score`, `training_most_failed`, `training_prepost_comparison`, `get_employee_training`, `list_training_modules`
+6. **Training** (from `all_employee_training_data_20260417.csv`) — `training_wajib_not_completed`, `training_completion_by_outlet`, `training_not_started`, `safety_training_not_completed`, `sop_training_not_completed`, `onboarding_not_completed`, `training_incomplete_assigned`, `training_low_score`, `training_most_failed`, `training_prepost_comparison`, `get_employee_training`, `list_training_modules`, `training_completion_by_module`, `competency_gap_by_role`, `ld_key_insights`, `weekly_ld_digest`, `list_employee_training_modules`
 7. **Export** — `get_export_link`
 
 **Training data** (`data/all_employee_training_data_20260417.csv`) — each row = one employee × one module assignment:
@@ -80,7 +80,7 @@ SPV_PATTERN = "manager|supervisor|spv|head|lead|chief|director|koordinator|capta
 - Dify calls `get_export_link` with `tool_name` matching the previous tool call and the same filter params
 - Returns `download_url` pointing to `/export?tool=...&format=excel&...` — Dify presents this as a clickable link
 - User clicks → browser downloads CSV or Excel (via `openpyxl`)
-- `TOOL_FUNCTIONS` dict (end of [app/main.py](app/main.py)) maps all 32 tool names → handler functions
+- `TOOL_FUNCTIONS` dict (end of [app/main.py](app/main.py)) maps all 37 tool names → handler functions
 - `TOOL_ARRAY_KEY` maps tool names → response list key (`"employees"`, `"outlets"`, `"modules"`, etc.)
 - Nested structures auto-flattened: `get_employee_training` (one row/module), `training_incomplete_assigned` (modules joined as CSV string), `list_active_by_status` (groups flattened with `employment_status_group` column)
 

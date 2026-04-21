@@ -1,6 +1,6 @@
 # HR Employee MCP Server v2.0.0
 
-FastAPI server yang meng-expose data karyawan sebagai **30 MCP tools** untuk integrasi dengan Dify.  
+FastAPI server yang meng-expose data karyawan sebagai **38 MCP tools** untuk integrasi dengan Dify.  
 Di-deploy di Vercel, terhubung ke Dify sebagai Custom Tool via OpenAPI schema.
 
 ---
@@ -10,10 +10,10 @@ Di-deploy di Vercel, terhubung ke Dify sebagai Custom Tool via OpenAPI schema.
 ```
 hr-mcp-server/
 ├── app/
-│   └── main.py                                  # FastAPI app — semua 30 tools
+│   └── main.py                                  # FastAPI app — semua 38 tools
 ├── data/
-│   ├── employee_data.csv                         # Dataset karyawan (wajib di-commit!)
-│   └── all_employee_training_data_20260416.csv   # Dataset training (wajib di-commit!)
+│   ├── employee_data_20260417.csv                # Dataset karyawan (wajib di-commit!)
+│   └── all_employee_training_data_20260417.csv   # Dataset training (wajib di-commit!)
 ├── requirements.txt
 ├── vercel.json
 └── README.md
@@ -68,7 +68,7 @@ Server akan live di: `https://hr-mcp-server.vercel.app`
    ```
    https://hr-mcp-server.vercel.app/openapi.json
    ```
-4. Klik **Import** — semua 30 tools akan muncul otomatis.
+4. Klik **Import** — semua 38 tools akan muncul otomatis.
 
 ### Step 2 — Tambahkan ke Agent/Chatflow
 
@@ -86,7 +86,7 @@ Jika pertanyaan tidak bisa dijawab dari data yang ada, jelaskan datanya tidak te
 
 ---
 
-## 30 Tools — Referensi Lengkap
+## 38 Tools — Referensi Lengkap
 
 ### Group 1 — Headcount & Summary
 
@@ -135,7 +135,7 @@ Jika pertanyaan tidak bisa dijawab dari data yang ada, jelaskan datanya tidak te
 
 ### Group 6 — Training
 
-> Data dari `data/all_employee_training_data_20260416.csv`. Lulus = `post_test_grade >= 90`.
+> Data dari `data/all_employee_training_data_20260417.csv`. Lulus = `post_test_grade >= 90`.
 
 | Tool | Endpoint | Contoh Pertanyaan |
 |---|---|---|
@@ -149,6 +149,13 @@ Jika pertanyaan tidak bisa dijawab dari data yang ada, jelaskan datanya tidak te
 | `training_low_score` | `GET /tools/training_low_score` | "Siapa training score rendah?" |
 | `training_most_failed` | `GET /tools/training_most_failed` | "Training apa paling sering gagal?" |
 | `training_prepost_comparison` | `GET /tools/training_prepost_comparison` | "Perbandingan pre-test vs post-test per modul?" |
+| `get_employee_training` | `GET /tools/get_employee_training` | "Training apa yang diassign ke karyawan XX?" |
+| `list_training_modules` | `GET /tools/list_training_modules` | "Apa saja modul training yang ada?" |
+| `training_completion_by_module` | `GET /tools/training_completion_by_module` | "Berapa % completion rate per modul? Modul mana paling rendah?" |
+| `competency_gap_by_role` | `GET /tools/competency_gap_by_role` | "Role apa yang paling banyak fail post-test? Competency gap per jabatan?" |
+| `ld_key_insights` | `GET /tools/ld_key_insights` | "Key insight L&D bulan ini — green news dan red news" |
+| `weekly_ld_digest` | `GET /tools/weekly_ld_digest` | "Generate weekly L&D digest, training overdue minggu ini" |
+| `list_employee_training_modules` | `GET /tools/list_employee_training_modules?name_or_id=Ahmad` | "Ada modul apa saja yang diassign ke karyawan X?" |
 
 ---
 
@@ -221,7 +228,7 @@ Pertanyaan berikut memerlukan data tambahan yang tidak ada di CSV saat ini:
 
 **Karyawan:** Ganti `data/employee_data.csv` dengan export terbaru, lalu redeploy ke Vercel.
 
-**Training:** Ganti `data/all_employee_training_data_20260416.csv` dengan file baru, update nilai `TRAINING_DATA_PATH` di `app/main.py` jika nama file berubah, lalu redeploy.
+**Training:** Ganti `data/all_employee_training_data_20260417.csv` dengan file baru, update nilai `TRAINING_DATA_PATH` di `app/main.py` jika nama file berubah, lalu redeploy.
 
 Server membaca CSV setiap request — tidak perlu database.
 

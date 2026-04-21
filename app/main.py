@@ -353,6 +353,55 @@ OPENAPI_SCHEMA = {
       ],
       "responses": {"200": {"description": "OK", "content": {"application/json": {"schema": {"type": "object"}}}}}
     }},
+    "/tools/training_completion_by_module": {"get": {
+      "operationId": "training_completion_by_module",
+      "summary": "Completion rate training per modul",
+      "description": "Completion rate per modul training diurutkan dari terendah/tertinggi, dengan breakdown per outlet. Jawab: Berapa % completion rate per modul? Modul mana completion paling rendah? Siapa yang belum di outlet mana?",
+      "parameters": [
+        {"name": "top_n",      "in": "query", "required": False, "schema": {"type": "integer", "default": 10},   "description": "Tampilkan N modul"},
+        {"name": "brand_name", "in": "query", "required": False, "schema": {"type": "string",  "nullable": True}, "description": "Filter nama brand (partial match)"},
+        {"name": "sort_by",    "in": "query", "required": False, "schema": {"type": "string",  "default": "asc"}, "description": "'asc' = terendah dulu, 'desc' = tertinggi dulu"}
+      ],
+      "responses": {"200": {"description": "OK", "content": {"application/json": {"schema": {"type": "object"}}}}}
+    }},
+    "/tools/competency_gap_by_role": {"get": {
+      "operationId": "competency_gap_by_role",
+      "summary": "Gap kompetensi berdasarkan role dan modul training",
+      "description": "Posisi/jabatan dengan fail rate post-test tertinggi per modul. Jawab: Role apa yang paling banyak fail post-test? Indikasi competency gap per jabatan?",
+      "parameters": [
+        {"name": "top_n",       "in": "query", "required": False, "schema": {"type": "integer", "default": 10},   "description": "Tampilkan N gap teratas"},
+        {"name": "module_name", "in": "query", "required": False, "schema": {"type": "string",  "nullable": True}, "description": "Filter nama modul (partial match)"}
+      ],
+      "responses": {"200": {"description": "OK", "content": {"application/json": {"schema": {"type": "object"}}}}}
+    }},
+    "/tools/ld_key_insights": {"get": {
+      "operationId": "ld_key_insights",
+      "summary": "Key insight L&D: green news dan red news",
+      "description": "Insight utama L&D dari data saat ini: green news (hal positif) dan red news (area perlu tindak lanjut). Jawab: Berikan key insight L&D bulan ini. Green news dan red news training.",
+      "parameters": [
+        {"name": "brand_name", "in": "query", "required": False, "schema": {"type": "string", "nullable": True}, "description": "Filter nama brand (partial match)"}
+      ],
+      "responses": {"200": {"description": "OK", "content": {"application/json": {"schema": {"type": "object"}}}}}
+    }},
+    "/tools/weekly_ld_digest": {"get": {
+      "operationId": "weekly_ld_digest",
+      "summary": "Weekly L&D digest: completion rate, overdue, modul bermasalah",
+      "description": "Digest mingguan L&D: completion rate per modul, penugasan overdue, dan modul yang perlu perhatian. Jawab: Generate weekly L&D digest. Training overdue minggu ini. Modul completion turun.",
+      "parameters": [
+        {"name": "brand_name",   "in": "query", "required": False, "schema": {"type": "string",  "nullable": True}, "description": "Filter nama brand (partial match)"},
+        {"name": "overdue_days", "in": "query", "required": False, "schema": {"type": "integer", "default": 14},    "description": "Ambang hari assign dianggap overdue (default 14)"}
+      ],
+      "responses": {"200": {"description": "OK", "content": {"application/json": {"schema": {"type": "object"}}}}}
+    }},
+    "/tools/list_employee_training_modules": {"get": {
+      "operationId": "list_employee_training_modules",
+      "summary": "Daftar modul training yang di-assign ke karyawan tertentu",
+      "description": "Ringkasan semua modul training yang diassign ke karyawan: total, selesai, belum selesai, dan status per modul. Jawab: Ada modul apa saja yang diassign ke karyawan X? Berapa modul yang sudah/belum selesai si X?",
+      "parameters": [
+        {"name": "name_or_id", "in": "query", "required": True, "schema": {"type": "string"}, "description": "Nama atau employee_id karyawan"}
+      ],
+      "responses": {"200": {"description": "OK", "content": {"application/json": {"schema": {"type": "object"}}}}}
+    }},
     "/tools/get_export_link": {"get": {
       "operationId": "get_export_link",
       "summary": "Buat link download ekspor data ke CSV atau Excel",
@@ -482,6 +531,11 @@ def manifest():
             {"name": "training_prepost_comparison",    "endpoint": "/tools/training_prepost_comparison",    "method": "GET", "description": "Perbandingan rata-rata pre_test_grade vs post_test_grade per modul. Jawab: Perbandingan pre-test vs post-test per modul?"},
             {"name": "get_employee_training",          "endpoint": "/tools/get_employee_training",          "method": "GET", "description": "Daftar semua modul training yang diassign ke karyawan tertentu. Jawab: Training apa saja yang diassign ke karyawan XX?"},
             {"name": "list_training_modules",          "endpoint": "/tools/list_training_modules",          "method": "GET", "description": "Daftar semua nama modul training unik dari LMS. Jawab: Apa saja modul training yang ada? List semua training yang tersedia?"},
+            {"name": "training_completion_by_module",  "endpoint": "/tools/training_completion_by_module",  "method": "GET", "description": "Completion rate per modul training dengan breakdown per outlet. Jawab: Berapa % completion rate per modul? Modul mana paling rendah?"},
+            {"name": "competency_gap_by_role",         "endpoint": "/tools/competency_gap_by_role",         "method": "GET", "description": "Gap kompetensi: posisi/jabatan dengan fail rate post-test tertinggi per modul. Jawab: Role apa paling banyak fail post-test? Indikasi competency gap?"},
+            {"name": "ld_key_insights",                "endpoint": "/tools/ld_key_insights",                "method": "GET", "description": "Key insight L&D: green news (positif) dan red news (perlu tindak lanjut). Jawab: Key insight L&D bulan ini. Green news dan red news training."},
+            {"name": "weekly_ld_digest",               "endpoint": "/tools/weekly_ld_digest",               "method": "GET", "description": "Weekly L&D digest: completion rate, overdue, modul bermasalah. Jawab: Generate weekly L&D digest. Training overdue minggu ini."},
+            {"name": "list_employee_training_modules", "endpoint": "/tools/list_employee_training_modules", "method": "GET", "description": "Ringkasan modul training per karyawan: total, selesai, belum selesai. Jawab: Ada modul apa saja yang diassign ke karyawan X?"},
             # Export
             {"name": "get_export_link",                "endpoint": "/tools/get_export_link",                "method": "GET", "description": "Buat link download ekspor data ke CSV/Excel. Panggil dengan tool_name yang sama seperti tool sebelumnya. Jawab: Export ke excel, Download data ini, Simpan sebagai CSV."},
         ],
@@ -1245,31 +1299,16 @@ def list_employees_by_join_year(
 # GROUP 6 — Training (from all_employee_training_data.csv)
 # ══════════════════════════════════════════════════════════════════
 
-def _training_rows_by_employee(df: pd.DataFrame, outlet_name: Optional[str], limit: int) -> list:
-    """Deduplicate by employee_id, return one row per unique employee."""
-    df = df.drop_duplicates(subset="employee_id")
-    if outlet_name:
-        df = df[df["outlet_name"].str.contains(outlet_name, case=False, na=False)]
-    result = []
-    for _, r in df.head(limit).iterrows():
-        result.append({
-            "employee_id": r["employee_id"],
-            "full_name":   r["full_name"],
-            "outlet_name": r["outlet_name"],
-            # "is_outlet":   r["is_outlet"],
-            "brand_name":  r["brand_name"],
-            # "join_date":   r["join_date"].strftime("%Y-%m-%d") if pd.notna(r["join_date"]) else None,
-        })
-    return result
-
 
 def _training_rows_by_module(df: pd.DataFrame, outlet_name: Optional[str], limit: int) -> list:
     """Deduplicate by employee_id + module_name, return one row per employee-module pair."""
     df = df.drop_duplicates(subset=["employee_id", "module_name"])
     if outlet_name:
         df = df[df["outlet_name"].str.contains(outlet_name, case=False, na=False)]
+    today = pd.Timestamp(date.today())
     result = []
     for _, r in df.head(limit).iterrows():
+        join_dt = r["join_date"] if pd.notna(r["join_date"]) else None
         result.append({
             "employee_id":          r["employee_id"],
             "full_name":            r["full_name"],
@@ -1280,7 +1319,9 @@ def _training_rows_by_module(df: pd.DataFrame, outlet_name: Optional[str], limit
             "module_type":          r["module_type"],
             "is_module_mandatory":  r["is_module_mandatory"],
             "module_assigned_date": r["module_assigned_date"].strftime("%Y-%m-%d") if pd.notna(r["module_assigned_date"]) else None,
-            "join_date":            r["join_date"].strftime("%Y-%m-%d") if pd.notna(r["join_date"]) else None,
+            "post_test_grade":      float(r["post_test_grade"]) if pd.notna(r["post_test_grade"]) else None,
+            "join_date":            join_dt.strftime("%Y-%m-%d") if join_dt else None,
+            "days_since_join":      int((today - join_dt).days) if join_dt else None,
         })
     return result
 
@@ -1306,28 +1347,46 @@ def training_wajib_not_completed(
     if outlet_name:
         df = df[df["outlet_name"].str.contains(outlet_name, case=False, na=False)]
     df = df.drop_duplicates(subset=["employee_id", "module_name"])
-    grouped = (
-        df.groupby("employee_id")
-        .apply(lambda g: {
-            "employee_id":                g["employee_id"].iloc[0],
+    today = date.today()
+    grouped = []
+    for emp_id, g in df.groupby("employee_id"):
+        join_dt = g["join_date"].iloc[0]
+        join_str = join_dt.strftime("%Y-%m-%d") if pd.notna(join_dt) else None
+        days_since_join = int((pd.Timestamp(today) - join_dt).days) if pd.notna(join_dt) else None
+        grade_per_module = {
+            row["module_name"]: float(row["post_test_grade"]) if pd.notna(row["post_test_grade"]) else None
+            for _, row in g.iterrows()
+        }
+        grouped.append({
+            "employee_id":                emp_id,
             "full_name":                  g["full_name"].iloc[0],
             "outlet_name":                g["outlet_name"].iloc[0],
             "is_outlet":                  g["is_outlet"].iloc[0],
             "brand_name":                 g["brand_name"].iloc[0],
-            "join_date":                  g["join_date"].iloc[0].strftime("%Y-%m-%d") if pd.notna(g["join_date"].iloc[0]) else None,
+            "join_date":                  join_str,
+            "days_since_join":            days_since_join,
             "incomplete_mandatory_modules": sorted(g["module_name"].dropna().tolist()),
+            "post_test_grade_per_module": grade_per_module,
             "total_incomplete":           len(g),
         })
-        .tolist()
-    )
     grouped.sort(key=lambda x: x["total_incomplete"], reverse=True)
     total  = len(grouped)
     result = grouped[:limit]
+    outlets_affected = len(set(e["outlet_name"] for e in grouped))
+    priority = sum(
+        1 for e in grouped
+        if (e["days_since_join"] is not None and e["days_since_join"] > 30)
+        or all(v is None for v in e["post_test_grade_per_module"].values())
+    )
     return {
         "total":     total,
         "returned":  len(result),
         "employees": result,
-        "summary":   f"Ada {total} karyawan (unik) yang belum menyelesaikan training wajib.",
+        "summary": (
+            f"Ada {total} karyawan (unik) yang belum menyelesaikan training wajib, "
+            f"tersebar di {outlets_affected} outlet. "
+            f"Prioritas: {priority} karyawan dengan progress 0% atau bergabung > 30 hari lalu."
+        ),
     }
 
 
@@ -1346,24 +1405,32 @@ def training_completion_by_outlet(
     df = df[df["is_outlet"] == "1"]
     if brand_name:
         df = df[df["brand_name"].str.contains(brand_name, case=False, na=False)]
-    # Keep only rows with a recorded post_test_grade
-    tested = df[df["post_test_grade"].notna()].drop_duplicates(subset=["employee_id", "outlet_name"])
-    if tested.empty:
-        return {"outlets": [], "summary": "Tidak ada data post_test_grade yang tercatat."}
-    grp = tested.groupby("outlet_name").agg(
-        total_tested=("employee_id", "count"),
-        passed      =("post_test_grade", lambda x: (x >= 90).sum()),
-    ).reset_index()
-    grp["failed"]             = grp["total_tested"] - grp["passed"]
-    grp["completion_rate_pct"] = (grp["passed"] / grp["total_tested"] * 100).round(1)
+    if df.empty:
+        return {"outlets": [], "summary": "Tidak ada data outlet yang tercatat."}
+    # Total unique employees assigned per outlet
+    total_per_outlet = (
+        df.drop_duplicates(subset=["employee_id", "outlet_name"])
+        .groupby("outlet_name")["employee_id"].count()
+        .reset_index().rename(columns={"employee_id": "total_employees"})
+    )
+    # Completed: employees with at least one post_test_grade >= 90
+    completed_per_outlet = (
+        df[df["post_test_grade"] >= 90][["employee_id", "outlet_name"]]
+        .drop_duplicates()
+        .groupby("outlet_name")["employee_id"].count()
+        .reset_index().rename(columns={"employee_id": "completed_employees"})
+    )
+    grp = total_per_outlet.merge(completed_per_outlet, on="outlet_name", how="left")
+    grp["completed_employees"] = grp["completed_employees"].fillna(0).astype(int)
+    grp["completion_rate_pct"] = (grp["completed_employees"] / grp["total_employees"] * 100).round(1)
     grp = grp.sort_values("completion_rate_pct").head(top_n)
     result = [
         {
-            "outlet_name":         r["outlet_name"],
-            "total_tested":        int(r["total_tested"]),
-            "passed_gte_90":       int(r["passed"]),
-            "failed_lt_90":        int(r["failed"]),
-            "completion_rate_pct": float(r["completion_rate_pct"]),
+            "outlet_name":          r["outlet_name"],
+            "total_employees":      int(r["total_employees"]),
+            "completed_employees":  int(r["completed_employees"]),
+            "completion_rate_pct":  float(r["completion_rate_pct"]),
+            "completion_display":   f"{int(r['completed_employees'])} dari {int(r['total_employees'])} karyawan selesai",
         }
         for _, r in grp.iterrows()
     ]
@@ -1372,7 +1439,7 @@ def training_completion_by_outlet(
         "outlets": result,
         "summary": (
             f"Outlet dengan completion rate terendah: {worst.get('outlet_name')} "
-            f"({worst.get('completion_rate_pct')}% lulus dari {worst.get('total_tested')} karyawan yang sudah diuji)."
+            f"({worst.get('completion_rate_pct')}% — {worst.get('completion_display')})."
         ),
     }
 
@@ -1395,9 +1462,29 @@ def training_not_started(
     # Sum post_test_grade per employee (treat null as 0); keep employees with sum == 0
     grade_sum = df.groupby("employee_id")["post_test_grade"].sum(min_count=0).fillna(0)
     zero_ids  = grade_sum[grade_sum == 0].index
-    df_zero   = df[df["employee_id"].isin(zero_ids)].drop_duplicates(subset="employee_id")
-    total  = len(df_zero)
-    result = _training_rows_by_employee(df_zero, outlet_name=None, limit=limit)
+    df_not_started = df[df["employee_id"].isin(zero_ids)]
+    today = pd.Timestamp(date.today())
+    grouped = []
+    for emp_id, grp in df_not_started.groupby("employee_id"):
+        r = grp.iloc[0]
+        oldest_assign = grp["module_assigned_date"].dropna().min()
+        days_since = int((today - oldest_assign).days) if pd.notna(oldest_assign) else None
+        modules_deduped = grp.drop_duplicates(subset="module_name")
+        if outlet_name and not pd.Series([r["outlet_name"]]).str.contains(outlet_name, case=False, na=False).iloc[0]:
+            continue
+        grouped.append({
+            "employee_id":              emp_id,
+            "full_name":                r["full_name"],
+            "outlet_name":              r["outlet_name"],
+            "brand_name":               r["brand_name"],
+            "join_date":                r["join_date"].strftime("%Y-%m-%d") if pd.notna(r["join_date"]) else None,
+            "days_since_oldest_assign": days_since,
+            "total_modules_assigned":   len(modules_deduped),
+            "modules_not_started":      sorted(modules_deduped["module_name"].dropna().tolist()),
+        })
+    grouped.sort(key=lambda x: (x["days_since_oldest_assign"] or 0), reverse=True)
+    total  = len(grouped)
+    result = grouped[:limit]
     return {
         "total":     total,
         "returned":  len(result),
@@ -1426,12 +1513,35 @@ def safety_training_not_completed(
         df = df[df["brand_name"].str.contains(brand_name, case=False, na=False)]
     df = df.drop_duplicates(subset=["employee_id", "module_name"])
     total  = len(df)
+    # by_module aggregation with per-outlet breakdown
+    by_module = []
+    for mod_name, mod_grp in df.groupby("module_name"):
+        outlets_in_mod = (
+            mod_grp.groupby("outlet_name")["employee_id"].count()
+            .reset_index().rename(columns={"employee_id": "count"})
+            .sort_values("count", ascending=False)
+        )
+        by_module.append({
+            "module_name": mod_name,
+            "count": len(mod_grp),
+            "outlets": [{"outlet_name": r["outlet_name"], "count": int(r["count"])} for _, r in outlets_in_mod.iterrows()],
+        })
+    by_module.sort(key=lambda x: x["count"], reverse=True)
+    # by_outlet aggregation
+    by_outlet = (
+        df.groupby("outlet_name")["employee_id"].count()
+        .reset_index().rename(columns={"employee_id": "count"})
+        .sort_values("count", ascending=False)
+    )
+    by_outlet_list = [{"outlet_name": r["outlet_name"], "count": int(r["count"])} for _, r in by_outlet.iterrows()]
     result = _training_rows_by_module(df, outlet_name, limit)
     return {
         "total":     total,
         "returned":  len(result),
         "employees": result,
-        "summary":   f"Ada {total} penugasan modul safety/K3 yang belum diselesaikan.",
+        "by_module": by_module,
+        "by_outlet": by_outlet_list,
+        "summary":   f"Ada {total} penugasan modul safety/K3 yang belum diselesaikan, tersebar di {len(by_outlet_list)} outlet.",
     }
 
 
@@ -1455,12 +1565,42 @@ def sop_training_not_completed(
         df = df[df["brand_name"].str.contains(brand_name, case=False, na=False)]
     df = df.drop_duplicates(subset=["employee_id", "module_name"])
     total  = len(df)
+    # by_module aggregation with per-outlet breakdown
+    by_module = []
+    for mod_name, mod_grp in df.groupby("module_name"):
+        outlets_in_mod = (
+            mod_grp.groupby("outlet_name")["employee_id"].count()
+            .reset_index().rename(columns={"employee_id": "count"})
+            .sort_values("count", ascending=False)
+        )
+        by_module.append({
+            "module_name": mod_name,
+            "count": len(mod_grp),
+            "outlets": [{"outlet_name": r["outlet_name"], "count": int(r["count"])} for _, r in outlets_in_mod.iterrows()],
+        })
+    by_module.sort(key=lambda x: x["count"], reverse=True)
+    # by_outlet aggregation
+    by_outlet = (
+        df.groupby("outlet_name")["employee_id"].count()
+        .reset_index().rename(columns={"employee_id": "count"})
+        .sort_values("count", ascending=False)
+    )
+    by_outlet_list = [{"outlet_name": r["outlet_name"], "count": int(r["count"])} for _, r in by_outlet.iterrows()]
     result = _training_rows_by_module(df, outlet_name, limit)
+    # Flag employees who've been employed > 60 days
+    long_tenured = sum(1 for e in result if e.get("days_since_join") is not None and e["days_since_join"] > 60)
     return {
-        "total":     total,
-        "returned":  len(result),
-        "employees": result,
-        "summary":   f"Ada {total} penugasan modul SOP/prosedur yang belum diselesaikan.",
+        "total":                    total,
+        "returned":                 len(result),
+        "long_tenured_gt_60_days":  long_tenured,
+        "employees":                result,
+        "by_module":                by_module,
+        "by_outlet":                by_outlet_list,
+        "summary": (
+            f"Ada {total} penugasan modul SOP/prosedur yang belum diselesaikan, "
+            f"tersebar di {len(by_outlet_list)} outlet. "
+            f"{long_tenured} karyawan sudah bekerja > 60 hari."
+        ),
     }
 
 
@@ -1489,8 +1629,32 @@ def onboarding_not_completed(
     df = df.drop_duplicates(subset=["employee_id", "module_name"])
     if outlet_name:
         df = df[df["outlet_name"].str.contains(outlet_name, case=False, na=False)]
-    total  = len(df)
-    result = _training_rows_by_module(df, outlet_name=None, limit=limit)
+    today_ts = pd.Timestamp(date.today())
+    # Group by employee to show per-employee module details
+    grouped = []
+    for emp_id, grp in df.groupby("employee_id"):
+        r = grp.iloc[0]
+        join_dt = r["join_date"]
+        days_since_join = int((today_ts - join_dt).days) if pd.notna(join_dt) else None
+        modules = [
+            {
+                "module_name":     row["module_name"],
+                "post_test_grade": float(row["post_test_grade"]) if pd.notna(row["post_test_grade"]) else None,
+            }
+            for _, row in grp.iterrows()
+        ]
+        grouped.append({
+            "employee_id":    emp_id,
+            "full_name":      r["full_name"],
+            "outlet_name":    r["outlet_name"],
+            "brand_name":     r["brand_name"],
+            "join_date":      join_dt.strftime("%Y-%m-%d") if pd.notna(join_dt) else None,
+            "days_since_join": days_since_join,
+            "modules":        sorted(modules, key=lambda x: x["module_name"]),
+        })
+    grouped.sort(key=lambda x: (x["days_since_join"] or 0), reverse=True)
+    total  = len(grouped)
+    result = grouped[:limit]
     return {
         "days":        days,
         "cutoff_date": cutoff.strftime("%Y-%m-%d"),
@@ -1498,8 +1662,8 @@ def onboarding_not_completed(
         "returned":    len(result),
         "employees":   result,
         "summary": (
-            f"Ada {total} penugasan modul onboarding/induction yang belum selesai "
-            f"untuk karyawan yang bergabung sebelum {cutoff.strftime('%Y-%m-%d')} (lebih dari {days} hari lalu)."
+            f"Ada {total} karyawan yang bergabung sebelum {cutoff.strftime('%Y-%m-%d')} "
+            f"(lebih dari {days} hari lalu) namun modul onboarding/induction belum selesai."
         ),
     }
 
@@ -1523,30 +1687,66 @@ def training_incomplete_assigned(
         df = df[df["outlet_name"].str.contains(outlet_name, case=False, na=False)]
     # Deduplicate per employee + module to avoid counting duplicates
     df = df.drop_duplicates(subset=["employee_id", "module_name"])
-    # Group by employee: collect incomplete module names
-    grouped = (
-        df.groupby("employee_id")
-        .apply(lambda g: {
-            "employee_id":         g["employee_id"].iloc[0],
-            "full_name":           g["full_name"].iloc[0],
-            "outlet_name":         g["outlet_name"].iloc[0],
-            "brand_name":          g["brand_name"].iloc[0],
-            "join_date":           g["join_date"].iloc[0].strftime("%Y-%m-%d") if pd.notna(g["join_date"].iloc[0]) else None,
-            "incomplete_modules":  sorted(g["module_name"].dropna().tolist()),
+    def _progress_bucket(g: pd.DataFrame) -> str:
+        """Classify employee progress based on their incomplete module states."""
+        grades = g["post_test_grade"].dropna()
+        pre_grades = g["pre_test_grade"].dropna()
+        if len(grades) > 0 and (grades >= 50).any():
+            return "high_progress"
+        if len(grades) > 0 and (grades > 0).any():
+            return "low_progress"
+        if len(pre_grades) > 0 and (pre_grades >= 50).any() and len(grades) == 0:
+            return "material_done_no_posttest"
+        return "not_started"
+
+    # Load full df to get pre_test_grade for bucket logic
+    df_full = load_training_df()
+    df_full = df_full[df_full["post_test_grade"].isna() | (df_full["post_test_grade"] < 90)]
+    if brand_name:
+        df_full = df_full[df_full["brand_name"].str.contains(brand_name, case=False, na=False)]
+    if outlet_name:
+        df_full = df_full[df_full["outlet_name"].str.contains(outlet_name, case=False, na=False)]
+    df_full = df_full.drop_duplicates(subset=["employee_id", "module_name"])
+
+    grouped = []
+    for emp_id, g in df_full.groupby("employee_id"):
+        bucket = _progress_bucket(g)
+        grouped.append({
+            "employee_id":          emp_id,
+            "full_name":            g["full_name"].iloc[0],
+            "outlet_name":          g["outlet_name"].iloc[0],
+            "brand_name":           g["brand_name"].iloc[0],
+            "join_date":            g["join_date"].iloc[0].strftime("%Y-%m-%d") if pd.notna(g["join_date"].iloc[0]) else None,
+            "incomplete_modules":   sorted(g["module_name"].dropna().tolist()),
             "mandatory_incomplete": int((g["is_module_mandatory"] == "1").sum()),
             "optional_incomplete":  int((g["is_module_mandatory"] == "0").sum()),
-            "total_incomplete":    len(g),
+            "total_incomplete":     len(g),
+            "progress_bucket":      bucket,
         })
-        .tolist()
-    )
     grouped.sort(key=lambda x: x["total_incomplete"], reverse=True)
     total  = len(grouped)
     result = grouped[:limit]
+    # Summaries
+    bucket_summary = {}
+    for b in ["not_started", "low_progress", "high_progress", "material_done_no_posttest"]:
+        bucket_summary[b] = sum(1 for e in grouped if e["progress_bucket"] == b)
+    by_outlet_counts = {}
+    for e in grouped:
+        by_outlet_counts[e["outlet_name"]] = by_outlet_counts.get(e["outlet_name"], 0) + 1
+    by_outlet = sorted([{"outlet_name": k, "count": v} for k, v in by_outlet_counts.items()], key=lambda x: x["count"], reverse=True)
     return {
-        "total":     total,
-        "returned":  len(result),
-        "employees": result,
-        "summary":   f"Ada {total} karyawan yang masih memiliki training belum diselesaikan.",
+        "total":          total,
+        "returned":       len(result),
+        "bucket_summary": bucket_summary,
+        "by_outlet":      by_outlet,
+        "employees":      result,
+        "summary": (
+            f"Ada {total} karyawan yang masih memiliki training belum diselesaikan. "
+            f"Belum mulai: {bucket_summary['not_started']}, "
+            f"Progress rendah: {bucket_summary['low_progress']}, "
+            f"Hampir selesai: {bucket_summary['high_progress']}, "
+            f"Materi selesai belum post-test: {bucket_summary['material_done_no_posttest']}."
+        ),
     }
 
 
@@ -1571,6 +1771,13 @@ def training_low_score(
     df = df.drop_duplicates(subset=["employee_id", "module_name"])
     df = df.sort_values("post_test_grade", ascending=True, na_position="last")
     total = len(df)
+    # by_module aggregation to detect systemic issues
+    by_module_counts = (
+        df.groupby("module_name")["employee_id"].count()
+        .reset_index().rename(columns={"employee_id": "count"})
+        .sort_values("count", ascending=False)
+    )
+    by_module = [{"module_name": r["module_name"], "count": int(r["count"])} for _, r in by_module_counts.iterrows()]
     result = []
     for _, r in df.head(limit).iterrows():
         result.append({
@@ -1582,12 +1789,21 @@ def training_low_score(
             "post_test_grade": float(r["post_test_grade"]) if pd.notna(r["post_test_grade"]) else None,
             "join_date":       r["join_date"].strftime("%Y-%m-%d") if pd.notna(r["join_date"]) else None,
         })
+    systemic = [m for m in by_module if m["count"] > 3]
+    systemic_msg = (
+        f" Indikasi masalah sistemik pada modul: {', '.join(m['module_name'] for m in systemic[:3])}."
+        if systemic else ""
+    )
     return {
         "threshold": threshold,
         "total":     total,
         "returned":  len(result),
+        "by_module": by_module,
         "employees": result,
-        "summary":   f"Ada {total} catatan dengan post_test_grade null atau di bawah {threshold} (unik per karyawan per modul).",
+        "summary": (
+            f"Ada {total} catatan dengan post_test_grade null atau di bawah {threshold} "
+            f"(unik per karyawan per modul).{systemic_msg}"
+        ),
     }
 
 
@@ -1603,18 +1819,27 @@ def training_most_failed(
     df = load_training_df()
     failed = df[df["post_test_grade"].notna() & (df["post_test_grade"] < 90)]
     failed = failed.drop_duplicates(subset=["employee_id", "module_name"])
+    # Total attempts per module (any non-null post_test_grade)
+    all_attempted = df[df["post_test_grade"].notna()].drop_duplicates(subset=["employee_id", "module_name"])
+    attempts_by_module = (
+        all_attempted.groupby("module_name")["employee_id"].count()
+        .reset_index().rename(columns={"employee_id": "total_attempts"})
+    )
     grp = (
         failed.groupby("module_name")
         .agg(failed_count=("employee_id", "count"), avg_score=("post_test_grade", "mean"))
         .reset_index()
+        .merge(attempts_by_module, on="module_name", how="left")
         .sort_values("failed_count", ascending=False)
         .head(top_n)
     )
     result = [
         {
-            "module_name":   r["module_name"],
-            "failed_count":  int(r["failed_count"]),
-            "avg_score":     round(float(r["avg_score"]), 1) if pd.notna(r["avg_score"]) else None,
+            "module_name":    r["module_name"],
+            "failed_count":   int(r["failed_count"]),
+            "total_attempts": int(r["total_attempts"]) if pd.notna(r.get("total_attempts")) else int(r["failed_count"]),
+            "fail_rate_pct":  round(r["failed_count"] / r["total_attempts"] * 100, 1) if pd.notna(r.get("total_attempts")) and r["total_attempts"] > 0 else None,
+            "avg_score":      round(float(r["avg_score"]), 1) if pd.notna(r["avg_score"]) else None,
         }
         for _, r in grp.iterrows()
     ]
@@ -1624,7 +1849,8 @@ def training_most_failed(
         "modules":   result,
         "summary": (
             f"Modul paling sering gagal: '{top.get('module_name')}' "
-            f"dengan {top.get('failed_count')} karyawan mendapat nilai di bawah 90."
+            f"dengan fail rate {top.get('fail_rate_pct')}% "
+            f"({top.get('failed_count')} dari {top.get('total_attempts')} karyawan gagal)."
         ),
     }
 
@@ -1655,17 +1881,31 @@ def training_prepost_comparison(
     ).reset_index()
     grp["delta"] = grp["avg_post"] - grp["avg_pre"]
     grp = grp.sort_values("delta", ascending=False)
-    result = [
-        {
-            "module_name":      r["module_name"],
-            "avg_pre_test":     round(float(r["avg_pre"]),  1),
-            "avg_post_test":    round(float(r["avg_post"]), 1) if pd.notna(r["avg_post"]) else None,
-            "delta":            round(float(r["delta"]),    1) if pd.notna(r["delta"])    else None,
-            "employee_count":   int(r["count"]),
-        }
-        for _, r in grp.iterrows()
-    ]
+    def _improvement_label(delta) -> str:
+        if delta is None:
+            return "tidak ada data"
+        if delta >= 20:
+            return "sangat efektif"
+        if delta >= 10:
+            return "efektif"
+        if delta >= 5:
+            return "cukup baik"
+        return "perlu dievaluasi"
+
+    result = []
+    for _, r in grp.iterrows():
+        delta = round(float(r["delta"]), 1) if pd.notna(r["delta"]) else None
+        result.append({
+            "module_name":       r["module_name"],
+            "avg_pre_test":      round(float(r["avg_pre"]),  1),
+            "avg_post_test":     round(float(r["avg_post"]), 1) if pd.notna(r["avg_post"]) else None,
+            "delta":             delta,
+            "improvement_label": _improvement_label(delta),
+            "employee_count":    int(r["count"]),
+        })
     best = result[0] if result else {}
+    needs_review = [m["module_name"] for m in result if m["delta"] is not None and m["delta"] < 10]
+    review_msg = f" Modul perlu review konten: {', '.join(needs_review[:3])}." if needs_review else ""
     return {
         "total_modules": len(result),
         "modules":       result,
@@ -1673,6 +1913,7 @@ def training_prepost_comparison(
             f"Perbandingan pre vs post test untuk {len(result)} modul. "
             f"Peningkatan tertinggi: '{best.get('module_name')}' "
             f"(pre: {best.get('avg_pre_test')}, post: {best.get('avg_post_test')}, delta: +{best.get('delta')})."
+            f"{review_msg}"
         ),
     }
 
@@ -1761,6 +2002,351 @@ def list_training_modules(
     }
 
 
+@app.get("/tools/training_completion_by_module", summary="Completion rate training per modul")
+def training_completion_by_module(
+    top_n:      int           = Query(10,   description="Tampilkan N modul terendah"),
+    brand_name: Optional[str] = Query(None, description="Filter nama brand (partial match)"),
+    sort_by:    str           = Query("asc", description="'asc' = terendah dulu, 'desc' = tertinggi dulu"),
+):
+    """
+    Completion rate per training module with per-outlet breakdown.
+    Completion = unique employees with post_test_grade >= 90 / total unique employees assigned.
+    Answers: "Berapa % completion rate per modul? Yang paling rendah apa?"
+    """
+    df = load_training_df()
+    if brand_name:
+        df = df[df["brand_name"].str.contains(brand_name, case=False, na=False)]
+    total_per_module = (
+        df.drop_duplicates(subset=["employee_id", "module_name"])
+        .groupby("module_name")["employee_id"].count()
+        .reset_index().rename(columns={"employee_id": "total_assigned"})
+    )
+    completed_per_module = (
+        df[df["post_test_grade"] >= 90]
+        .drop_duplicates(subset=["employee_id", "module_name"])
+        .groupby("module_name")["employee_id"].count()
+        .reset_index().rename(columns={"employee_id": "completed"})
+    )
+    grp = total_per_module.merge(completed_per_module, on="module_name", how="left")
+    grp["completed"]           = grp["completed"].fillna(0).astype(int)
+    grp["not_completed"]       = grp["total_assigned"] - grp["completed"]
+    grp["completion_rate_pct"] = (grp["completed"] / grp["total_assigned"] * 100).round(1)
+    ascending = sort_by != "desc"
+    grp = grp.sort_values("completion_rate_pct", ascending=ascending).head(top_n)
+    result = []
+    for _, r in grp.iterrows():
+        mod_df = df[df["module_name"] == r["module_name"]].drop_duplicates(subset=["employee_id", "outlet_name"])
+        total_by_outlet = mod_df.groupby("outlet_name")["employee_id"].count().reset_index().rename(columns={"employee_id": "total_assigned"})
+        comp_by_outlet  = (
+            df[(df["module_name"] == r["module_name"]) & (df["post_test_grade"] >= 90)]
+            .drop_duplicates(subset=["employee_id", "outlet_name"])
+            .groupby("outlet_name")["employee_id"].count()
+            .reset_index().rename(columns={"employee_id": "completed"})
+        )
+        outlet_grp = total_by_outlet.merge(comp_by_outlet, on="outlet_name", how="left")
+        outlet_grp["completed"]           = outlet_grp["completed"].fillna(0).astype(int)
+        outlet_grp["completion_rate_pct"] = (outlet_grp["completed"] / outlet_grp["total_assigned"] * 100).round(1)
+        outlet_grp = outlet_grp.sort_values("completion_rate_pct")
+        result.append({
+            "module_name":        r["module_name"],
+            "total_assigned":     int(r["total_assigned"]),
+            "completed":          int(r["completed"]),
+            "not_completed":      int(r["not_completed"]),
+            "completion_rate_pct": float(r["completion_rate_pct"]),
+            "by_outlet": [
+                {
+                    "outlet_name":        row["outlet_name"],
+                    "total_assigned":     int(row["total_assigned"]),
+                    "completed":          int(row["completed"]),
+                    "completion_rate_pct": float(row["completion_rate_pct"]),
+                }
+                for _, row in outlet_grp.iterrows()
+            ],
+        })
+    lowest = result[0] if result else {}
+    return {
+        "total_modules": len(result),
+        "modules":       result,
+        "summary": (
+            f"Modul dengan completion rate {'terendah' if ascending else 'tertinggi'}: "
+            f"'{lowest.get('module_name')}' — {lowest.get('completion_rate_pct')}% "
+            f"({lowest.get('completed')} dari {lowest.get('total_assigned')} karyawan selesai)."
+        ),
+    }
+
+
+@app.get("/tools/competency_gap_by_role", summary="Gap kompetensi berdasarkan role dan modul training")
+def competency_gap_by_role(
+    top_n:       int           = Query(10,   description="Tampilkan N gap teratas"),
+    module_name: Optional[str] = Query(None, description="Filter nama modul (partial match)"),
+):
+    """
+    Identify which job positions have the highest fail rates per training module.
+    Joins training data with employee data on employee_id to get job_position.
+    Answers: "Role apa yang paling banyak fail post-test di modul tertentu?"
+    """
+    df_train = load_training_df()
+    df_emp   = load_df()
+    if module_name:
+        df_train = df_train[df_train["module_name"].str.contains(module_name, case=False, na=False)]
+    # Only rows with a post_test result
+    df_attempted = df_train[df_train["post_test_grade"].notna()].drop_duplicates(subset=["employee_id", "module_name"])
+    # Join on normalized full_name (employee_id formats differ between CSVs)
+    df_emp["full_name_norm"]    = df_emp["full_name"].str.strip().str.lower()
+    df_attempted["full_name_norm"] = df_attempted["full_name"].str.strip().str.lower()
+    role_map = df_emp[["full_name_norm", "job_position"]].drop_duplicates(subset="full_name_norm")
+    df_attempted = df_attempted.merge(role_map, on="full_name_norm", how="left")
+    df_attempted = df_attempted[df_attempted["job_position"].notna()]
+    if df_attempted.empty:
+        return {"gaps": [], "summary": "Tidak ada data yang dapat dianalisis."}
+    total_by_role_mod = (
+        df_attempted.groupby(["job_position", "module_name"])["employee_id"].count()
+        .reset_index().rename(columns={"employee_id": "total_attempted"})
+    )
+    failed = df_attempted[df_attempted["post_test_grade"] < 90]
+    failed_by_role_mod = (
+        failed.groupby(["job_position", "module_name"])["employee_id"].count()
+        .reset_index().rename(columns={"employee_id": "failed_count"})
+    )
+    grp = total_by_role_mod.merge(failed_by_role_mod, on=["job_position", "module_name"], how="left")
+    grp["failed_count"]  = grp["failed_count"].fillna(0).astype(int)
+    grp["fail_rate_pct"] = (grp["failed_count"] / grp["total_attempted"] * 100).round(1)
+    grp = grp.sort_values("fail_rate_pct", ascending=False).head(top_n)
+    result = [
+        {
+            "job_position":    r["job_position"],
+            "module_name":     r["module_name"],
+            "total_attempted": int(r["total_attempted"]),
+            "failed_count":    int(r["failed_count"]),
+            "fail_rate_pct":   float(r["fail_rate_pct"]),
+        }
+        for _, r in grp.iterrows()
+    ]
+    top = result[0] if result else {}
+    return {
+        "total": len(result),
+        "gaps":  result,
+        "summary": (
+            f"Gap kompetensi terbesar: '{top.get('job_position')}' pada modul '{top.get('module_name')}' "
+            f"— fail rate {top.get('fail_rate_pct')}% "
+            f"({top.get('failed_count')} dari {top.get('total_attempted')} karyawan gagal)."
+        ),
+    }
+
+
+@app.get("/tools/ld_key_insights", summary="Key insight L&D: green news dan red news")
+def ld_key_insights(
+    brand_name: Optional[str] = Query(None, description="Filter nama brand (partial match)"),
+):
+    """
+    Key L&D insights derived from current data snapshot: green news (positives) and
+    red news (areas needing attention).
+    Answers: "Berikan key insight L&D bulan ini – green news dan red news."
+    """
+    df = load_training_df()
+    if brand_name:
+        df = df[df["brand_name"].str.contains(brand_name, case=False, na=False)]
+
+    # Completion rate per module
+    total_per_mod = (
+        df.drop_duplicates(subset=["employee_id", "module_name"])
+        .groupby("module_name")["employee_id"].count().reset_index().rename(columns={"employee_id": "total"})
+    )
+    comp_per_mod = (
+        df[df["post_test_grade"] >= 90].drop_duplicates(subset=["employee_id", "module_name"])
+        .groupby("module_name")["employee_id"].count().reset_index().rename(columns={"employee_id": "completed"})
+    )
+    mod_grp = total_per_mod.merge(comp_per_mod, on="module_name", how="left")
+    mod_grp["completed"]           = mod_grp["completed"].fillna(0).astype(int)
+    mod_grp["completion_rate_pct"] = (mod_grp["completed"] / mod_grp["total"] * 100).round(1)
+
+    # Pre-post delta per module
+    df_pre = df[df["pre_test_grade"].notna()]
+    prepost = df_pre.groupby("module_name").agg(avg_pre=("pre_test_grade","mean"), avg_post=("post_test_grade","mean")).reset_index()
+    prepost["delta"] = prepost["avg_post"] - prepost["avg_pre"]
+
+    # Fail rate per module
+    attempted = df[df["post_test_grade"].notna()].drop_duplicates(subset=["employee_id","module_name"])
+    failed    = attempted[attempted["post_test_grade"] < 90]
+    fail_grp  = attempted.groupby("module_name")["employee_id"].count().reset_index().rename(columns={"employee_id":"total_att"})
+    fail_cnt  = failed.groupby("module_name")["employee_id"].count().reset_index().rename(columns={"employee_id":"failed_cnt"})
+    fail_rate = fail_grp.merge(fail_cnt, on="module_name", how="left")
+    fail_rate["failed_cnt"]   = fail_rate["failed_cnt"].fillna(0).astype(int)
+    fail_rate["fail_rate_pct"] = (fail_rate["failed_cnt"] / fail_rate["total_att"] * 100).round(1)
+
+    green_news = []
+    red_news   = []
+
+    # GREEN: high completion modules
+    high_comp = mod_grp[mod_grp["completion_rate_pct"] >= 70].sort_values("completion_rate_pct", ascending=False)
+    for _, r in high_comp.head(3).iterrows():
+        green_news.append({"type": "completion", "message": f"'{r['module_name']}' completion rate tinggi: {r['completion_rate_pct']}%"})
+
+    # GREEN: high improvement modules (delta >= 20)
+    high_delta = prepost[prepost["delta"].notna() & (prepost["delta"] >= 20)].sort_values("delta", ascending=False)
+    for _, r in high_delta.head(2).iterrows():
+        green_news.append({"type": "improvement", "message": f"'{r['module_name']}' delta pre→post tertinggi: +{round(r['delta'],1)} poin (sangat efektif)"})
+
+    # RED: low completion modules
+    low_comp = mod_grp[mod_grp["completion_rate_pct"] < 50].sort_values("completion_rate_pct")
+    for _, r in low_comp.head(3).iterrows():
+        red_news.append({"type": "completion", "message": f"'{r['module_name']}' completion rate rendah: {r['completion_rate_pct']}% ({int(r['completed'])} dari {int(r['total'])} selesai)"})
+
+    # RED: high fail rate modules
+    high_fail = fail_rate[fail_rate["fail_rate_pct"] > 30].sort_values("fail_rate_pct", ascending=False)
+    for _, r in high_fail.head(3).iterrows():
+        red_news.append({"type": "fail_rate", "message": f"'{r['module_name']}' fail rate tinggi: {r['fail_rate_pct']}% ({int(r['failed_cnt'])} dari {int(r['total_att'])} gagal)"})
+
+    # RED: employees below threshold (post_test_grade not null but still < 90)
+    below_thresh = df[df["post_test_grade"].notna() & (df["post_test_grade"] < 90)].drop_duplicates(subset="employee_id")
+    red_news.append({"type": "below_threshold", "message": f"{len(below_thresh)} karyawan masih di bawah threshold post-test (nilai ada tapi < 90)"})
+
+    return {
+        "green_news": green_news,
+        "red_news":   red_news,
+        "summary": (
+            f"Key Insight L&D: {len(green_news)} green news (hal positif), "
+            f"{len(red_news)} red news (perlu tindak lanjut). "
+            f"Modul terbaik: '{high_comp.iloc[0]['module_name'] if not high_comp.empty else '-'}'. "
+            f"Modul perlu perhatian: '{low_comp.iloc[0]['module_name'] if not low_comp.empty else '-'}'."
+        ),
+    }
+
+
+@app.get("/tools/weekly_ld_digest", summary="Weekly L&D digest: completion rate, overdue, modul bermasalah")
+def weekly_ld_digest(
+    brand_name:   Optional[str] = Query(None, description="Filter nama brand (partial match)"),
+    overdue_days: int           = Query(14,   description="Ambang hari assign dianggap overdue (default 14)"),
+):
+    """
+    Weekly L&D digest showing current module completion rates, overdue assignments,
+    and modules needing attention. Note: week-over-week comparison unavailable (single snapshot).
+    Answers: "Generate weekly L&D digest: completion rate, training overdue, modul drop."
+    """
+    df = load_training_df()
+    if brand_name:
+        df = df[df["brand_name"].str.contains(brand_name, case=False, na=False)]
+    today_ts = pd.Timestamp(date.today())
+
+    # Module completion rates
+    total_per_mod = (
+        df.drop_duplicates(subset=["employee_id", "module_name"])
+        .groupby("module_name")["employee_id"].count().reset_index().rename(columns={"employee_id": "total"})
+    )
+    comp_per_mod = (
+        df[df["post_test_grade"] >= 90].drop_duplicates(subset=["employee_id", "module_name"])
+        .groupby("module_name")["employee_id"].count().reset_index().rename(columns={"employee_id": "completed"})
+    )
+    mod_grp = total_per_mod.merge(comp_per_mod, on="module_name", how="left")
+    mod_grp["completed"]           = mod_grp["completed"].fillna(0).astype(int)
+    mod_grp["completion_rate_pct"] = (mod_grp["completed"] / mod_grp["total"] * 100).round(1)
+    mod_grp["status"] = mod_grp["completion_rate_pct"].apply(
+        lambda x: "baik" if x >= 70 else ("perlu perhatian" if x >= 50 else "kritis")
+    )
+    module_completion = [
+        {"module_name": r["module_name"], "completion_rate_pct": float(r["completion_rate_pct"]), "status": r["status"]}
+        for _, r in mod_grp.sort_values("completion_rate_pct").iterrows()
+    ]
+
+    # Overdue assignments
+    cutoff = today_ts - pd.Timedelta(days=overdue_days)
+    overdue_df = df[
+        df["module_assigned_date"].notna() &
+        (df["module_assigned_date"] <= cutoff) &
+        (df["post_test_grade"].isna() | (df["post_test_grade"] < 90))
+    ].drop_duplicates(subset=["employee_id", "module_name"])
+    overdue_list = [
+        {
+            "employee_id":  r["employee_id"],
+            "full_name":    r["full_name"],
+            "outlet_name":  r["outlet_name"],
+            "module_name":  r["module_name"],
+            "days_overdue": int((today_ts - r["module_assigned_date"]).days),
+        }
+        for _, r in overdue_df.sort_values("module_assigned_date").head(50).iterrows()
+    ]
+
+    modules_needing_attention = [m["module_name"] for m in module_completion if m["status"] in ("perlu perhatian", "kritis")]
+
+    return {
+        "digest_date":              today_ts.strftime("%Y-%m-%d"),
+        "overdue_days_threshold":   overdue_days,
+        "module_completion":        module_completion,
+        "overdue_assignments":      overdue_list,
+        "modules_needing_attention": modules_needing_attention,
+        "summary": (
+            f"Weekly L&D Digest ({today_ts.strftime('%Y-%m-%d')}): "
+            f"{len(module_completion)} modul terpantau, "
+            f"{len(overdue_list)} penugasan overdue > {overdue_days} hari, "
+            f"{len(modules_needing_attention)} modul perlu perhatian."
+        ),
+    }
+
+
+@app.get("/tools/list_employee_training_modules", summary="Daftar modul training yang di-assign ke karyawan tertentu")
+def list_employee_training_modules(
+    name_or_id: str = Query(..., description="Nama atau employee_id karyawan"),
+):
+    """
+    Summary of all training modules assigned to a specific employee: total, completed, incomplete.
+    Answers: "Ada modul apa saja yang sudah di assign ke karyawan X?"
+    """
+    df = load_training_df()
+    # Match by employee_id (exact) or full_name (partial, case-insensitive)
+    mask = (df["employee_id"] == name_or_id) | df["full_name"].str.contains(name_or_id, case=False, na=False)
+    df   = df[mask].drop_duplicates(subset=["employee_id", "module_name"])
+    if df.empty:
+        return {"employees": [], "summary": f"Karyawan '{name_or_id}' tidak ditemukan di data training."}
+    results = []
+    for emp_id, grp in df.groupby("employee_id"):
+        r = grp.iloc[0]
+        modules = []
+        for _, row in grp.iterrows():
+            grade = row["post_test_grade"] if pd.notna(row["post_test_grade"]) else None
+            pre   = row["pre_test_grade"]  if pd.notna(row["pre_test_grade"])  else None
+            if grade is not None and grade >= 90:
+                status = "completed"
+            elif grade is None and pre is None:
+                status = "not_started"
+            else:
+                status = "incomplete"
+            modules.append({
+                "module_name":         row["module_name"],
+                "module_type":         row["module_type"],
+                "is_mandatory":        row["is_module_mandatory"] == "1",
+                "module_assigned_date": row["module_assigned_date"].strftime("%Y-%m-%d") if pd.notna(row["module_assigned_date"]) else None,
+                "pre_test_grade":      float(pre) if pre is not None else None,
+                "post_test_grade":     float(grade) if grade is not None else None,
+                "status":              status,
+            })
+        modules.sort(key=lambda x: x["module_name"])
+        total_assigned   = len(modules)
+        total_completed  = sum(1 for m in modules if m["status"] == "completed")
+        total_incomplete = total_assigned - total_completed
+        results.append({
+            "employee_id":     emp_id,
+            "full_name":       r["full_name"],
+            "outlet_name":     r["outlet_name"],
+            "brand_name":      r["brand_name"],
+            "total_assigned":  total_assigned,
+            "total_completed": total_completed,
+            "total_incomplete": total_incomplete,
+            "modules":         modules,
+            "summary": (
+                f"{r['full_name']} sudah di-assign {total_assigned} modul: "
+                f"{total_completed} selesai, {total_incomplete} belum selesai."
+            ),
+        })
+    overall_summary = f"Ditemukan {len(results)} karyawan cocok dengan '{name_or_id}'."
+    if len(results) == 1:
+        overall_summary = results[0]["summary"]
+    return {
+        "total_employees": len(results),
+        "employees":       results,
+        "summary":         overall_summary,
+    }
+
+
 # ══════════════════════════════════════════════════════════════════
 # EXPORT — /export (file download) + /tools/get_export_link (MCP)
 # ══════════════════════════════════════════════════════════════════
@@ -1796,8 +2382,13 @@ TOOL_FUNCTIONS = {
     "training_low_score":            training_low_score,
     "training_most_failed":          training_most_failed,
     "training_prepost_comparison":   training_prepost_comparison,
-    "get_employee_training":         get_employee_training,
-    "list_training_modules":         list_training_modules,
+    "get_employee_training":              get_employee_training,
+    "list_training_modules":             list_training_modules,
+    "training_completion_by_module":     training_completion_by_module,
+    "competency_gap_by_role":            competency_gap_by_role,
+    "ld_key_insights":                   ld_key_insights,
+    "weekly_ld_digest":                  weekly_ld_digest,
+    "list_employee_training_modules":    list_employee_training_modules,
 }
 
 # Maps tool name to the response key holding the main exportable list
@@ -1829,8 +2420,13 @@ TOOL_ARRAY_KEY = {
     "training_low_score":            "employees",
     "training_most_failed":          "modules",
     "training_prepost_comparison":   "modules",
-    "get_employee_training":         "employees",
-    "list_training_modules":         "modules",
+    "get_employee_training":              "employees",
+    "list_training_modules":             "modules",
+    "training_completion_by_module":     "modules",
+    "competency_gap_by_role":            "gaps",
+    "ld_key_insights":                   "green_news",
+    "weekly_ld_digest":                  "module_completion",
+    "list_employee_training_modules":    "employees",
 }
 
 
